@@ -53,6 +53,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Zipline Settings")
 	float ZiplineJumpOffThreshold = 100.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Zipline Settings")
+	float TopCableOffset = 5.0f;
+
 
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)

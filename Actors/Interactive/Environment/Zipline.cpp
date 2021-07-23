@@ -75,7 +75,8 @@ void AZipline::SetLowestPopleAndZDownVector()
 
 FVector AZipline::GetPoleTopLocation(const UStaticMeshComponent* Mesh)
 {
-	return (Mesh->GetComponentLocation() + Mesh->GetUpVector() * Mesh->GetStaticMesh()->GetBoundingBox().GetExtent().Z * Mesh->GetComponentScale().Z);
+	return (Mesh->GetComponentLocation() + (Mesh->GetUpVector() * Mesh->GetStaticMesh()->GetBoundingBox().GetExtent().Z 
+			-Mesh->GetUpVector() *TopCableOffset)*Mesh->GetComponentScale().Z);
 }
 
 void AZipline::BeginPlay()
@@ -110,12 +111,12 @@ void AZipline::OnConstruction(const FTransform& Transform)
 	
 	float TargetCableLength = DeltaVector.Size();
 	float InitialCableLength = CableSMComponent->GetStaticMesh()->GetBoundingBox().GetExtent().X * 2;
-	float TopOffset = 5.0f;
 
 	CableLength = TargetCableLength;
 
-	CableTransform.SetLocation(GetPoleTopLocation(SecondPoleSMComponent)+GetPoleTopLocation(FirstPoleSMComponent));
-	CableTransform.SetLocation(CableTransform.GetLocation() / 2);
+	CableTransform.SetLocation((GetPoleTopLocation(SecondPoleSMComponent)+GetPoleTopLocation(FirstPoleSMComponent))/2 );
+	
+
 
 	CableTransform.SetScale3D(FVector(TargetCableLength / InitialCableLength, 1, 1));
 	CableTransform.SetRotation(DeltaVector.ToOrientationRotator().Quaternion());

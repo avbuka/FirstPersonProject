@@ -704,8 +704,14 @@ void UGCBaseCharacterMovementComponent::PhysZiplining(float deltaTime, int32 Ite
 		DeltaHand = FVector::ZeroVector;
 	}
 
+
 	FHitResult Hit;
-	SafeMoveUpdatedComponent(Delta+DeltaHand, TargetRotation, false, Hit);
+	SafeMoveUpdatedComponent(Delta+DeltaHand, TargetRotation, true, Hit);
+
+	if (Hit.bBlockingHit)
+	{
+		DetachFromZipline();
+	}
 }
 
 bool UGCBaseCharacterMovementComponent::CanMantleInCurrentState()
