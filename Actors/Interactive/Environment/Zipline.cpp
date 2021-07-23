@@ -26,6 +26,9 @@ AZipline::AZipline()
 	InteractionVolume->SetCollisionProfileName(PawnCollisionProfileInteractionVolume);
 	InteractionVolume->SetGenerateOverlapEvents(true);
 
+	ArrowComponent = CreateDefaultSubobject<UArrowComponent>(TEXT("DirectionArrow"));
+	ArrowComponent->SetupAttachment(RootComponent);
+
 	SetObjectType();
 }
 
@@ -34,26 +37,9 @@ bool AZipline::CanAttachToZipline(const FVector& ActorLocation)
 	///offset to ensure that we grab something higher 
 	float Offset = 40;
 
-	if (FirstPoleSMComponent->GetComponentLocation().Z<SecondPoleSMComponent->GetComponentLocation().Z)
-	{
-		LowestPoleLocation = FirstPoleSMComponent->GetComponentLocation();
-		ZiplineDownVector = SecondPoleSMComponent->GetComponentLocation() - LowestPoleLocation;
-		
-		ZiplineDownVector.Normalize(1.0f);
-	}
-	else
-	{
-		LowestPoleLocation = SecondPoleSMComponent->GetComponentLocation();
-
-		ZiplineDownVector = LowestPoleLocation- FirstPoleSMComponent->GetComponentLocation() ;
-		
-		ZiplineDownVector.Normalize(1.0f);
-	}
-
 	if (LowestPoleLocation.Z + Offset < ActorLocation.Z )
 	{
-		CableHighestPoint= CableSMComponent->GetComponentLocation() - ZiplineDownVector * CableLength / 2;
-		CableLowestPoint= CableSMComponent->GetComponentLocation() + ZiplineDownVector * CableLength / 2;
+
 		return true;
 	}
 	return false;
@@ -61,12 +47,43 @@ bool AZipline::CanAttachToZipline(const FVector& ActorLocation)
 
 
 
+void AZipline::SetLowestPopleAndZDownVector()
+{
+	FVector DeltaVector = SecondPoleSMComponent->GetComponentLocation() - FirstPoleSMComponent->GetComponentLocation();
+	CableLength = DeltaVector.Size();
+
+	if (FirstPoleSMComponent->GetComponentLocation().Z < SecondPoleSMComponent->GetComponentLocation().Z)
+	{
+		LowestPoleLocation = FirstPoleSMComponent->GetComponentLocation();		
+		ZiplineDownVector = GetPoleTopLocation(FirstPoleSMComponent) -GetPoleTopLocation(SecondPoleSMComponent);
+
+		ArrowComponent->SetWorldLocation(GetPoleTopLocation(SecondPoleSMComponent));		
+	}
+	else
+	{
+		LowestPoleLocation = SecondPoleSMComponent->GetComponentLocation();
+		ZiplineDownVector = GetPoleTopLocation(SecondPoleSMComponent) - GetPoleTopLocation(FirstPoleSMComponent);
+
+		ArrowComponent->SetWorldLocation(GetPoleTopLocation(FirstPoleSMComponent));
+	}
+
+	ZiplineDownVector.Normalize(1.0f);
+	CableHighestPoint = CableSMComponent->GetComponentLocation() - ZiplineDownVector * CableLength / 2;
+	CableLowestPoint  = CableSMComponent->GetComponentLocation() + ZiplineDownVector * CableLength / 2;
+	ArrowComponent->SetWorldRotation(ZiplineDownVector.ToOrientationQuat());
+}
+
+FVector AZipline::GetPoleTopLocation(const UStaticMeshComponent* Mesh)
+{
+	return (Mesh->GetComponentLocation() + Mesh->GetUpVector() * Mesh->GetStaticMesh()->GetBoundingBox().GetExtent().Z * Mesh->GetComponentScale().Z);
+}
+
 void AZipline::BeginPlay()
 {
 	Super::BeginPlay();
 
-	FVector DeltaVector = SecondPoleSMComponent->GetComponentLocation() - FirstPoleSMComponent->GetComponentLocation();
-	CableLength= DeltaVector.Size();
+	SetLowestPopleAndZDownVector();
+
 }
 
 void AZipline::SetObjectType()
@@ -76,7 +93,7 @@ void AZipline::SetObjectType()
 
 void AZipline::OnConstruction(const FTransform& Transform)
 {
-	//@TODO change cable location to points
+
 
 	checkf(IsValid(CableSMComponent), TEXT("void AZipline::OnConstruction CableSMComponent is not valid"));
 	checkf(IsValid(FirstPoleSMComponent), TEXT("void AZipline::OnConstruction FirstPole is not valid"));
@@ -84,11 +101,12 @@ void AZipline::OnConstruction(const FTransform& Transform)
 	checkf(IsValid(InteractionVolume), TEXT("void AZipline::OnConstruction Interaction volume is not valid"));
 
 	FTransform CableTransform;
-	FBox PoleBox = FirstPoleSMComponent->GetStaticMesh()->GetBoundingBox();
+	FBox FirstPoleBox = FirstPoleSMComponent->GetStaticMesh()->GetBoundingBox();
+	FBox SecondPoleBox = SecondPoleSMComponent->GetStaticMesh()->GetBoundingBox();
 
 	//placing the cable in the middle 
 
-	FVector DeltaVector = SecondPoleSMComponent->GetComponentLocation() - FirstPoleSMComponent->GetComponentLocation();
+	FVector DeltaVector = GetPoleTopLocation(SecondPoleSMComponent) - GetPoleTopLocation(FirstPoleSMComponent);
 	
 	float TargetCableLength = DeltaVector.Size();
 	float InitialCableLength = CableSMComponent->GetStaticMesh()->GetBoundingBox().GetExtent().X * 2;
@@ -96,8 +114,8 @@ void AZipline::OnConstruction(const FTransform& Transform)
 
 	CableLength = TargetCableLength;
 
-	CableTransform.SetLocation((FirstPoleSMComponent->GetComponentLocation() + SecondPoleSMComponent->GetComponentLocation()) / 2);
-	CableTransform.SetLocation(CableTransform.GetLocation() + (PoleBox.GetExtent().Z - TopOffset) * FVector::UpVector);
+	CableTransform.SetLocation(GetPoleTopLocation(SecondPoleSMComponent)+GetPoleTopLocation(FirstPoleSMComponent));
+	CableTransform.SetLocation(CableTransform.GetLocation() / 2);
 
 	CableTransform.SetScale3D(FVector(TargetCableLength / InitialCableLength, 1, 1));
 	CableTransform.SetRotation(DeltaVector.ToOrientationRotator().Quaternion());
@@ -113,6 +131,10 @@ void AZipline::OnConstruction(const FTransform& Transform)
 	UCapsuleComponent* InteractionCapsule = Cast<UCapsuleComponent>(InteractionVolume);
 	InteractionCapsule->SetCapsuleHalfHeight(TargetCableLength / 2);
 	
+	SetLowestPopleAndZDownVector();
+
+	
+
 }
 
 void AZipline::OnInteractionVolumeOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)

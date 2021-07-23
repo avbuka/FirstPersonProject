@@ -171,6 +171,9 @@ void AGCBaseCharacter::InteractWithIActor()
 		}
 	}
 
+	//for some extreme cases when we travel further than the zipline and unable to find it in the array
+	//InteractWithZipline();
+
 }
 
 const class ALadder* AGCBaseCharacter::GetAvailableLadder()

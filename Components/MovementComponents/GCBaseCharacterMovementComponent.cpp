@@ -479,6 +479,8 @@ void UGCBaseCharacterMovementComponent::AttachToLadder(const class ALadder* Ladd
 
 void UGCBaseCharacterMovementComponent::AttachToZipline(const class AZipline* Zipline)
 {
+	//GCPlayerCharacter->ToggleSlowmo();
+
 	CurrentZipline = Zipline;
 	bIsZiplining = true;
 	SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_Ziplining);
@@ -543,7 +545,7 @@ void UGCBaseCharacterMovementComponent::DetachFromLadder(EDetachFromLadderMethod
 void UGCBaseCharacterMovementComponent::DetachFromZipline()
 {
 	bIsZiplining = false;
-	
+	//GCPlayerCharacter->ToggleSlowmo();
 	SetMovementMode(MOVE_Falling);
 }
 
@@ -677,7 +679,11 @@ void UGCBaseCharacterMovementComponent::PhysZiplining(float deltaTime, int32 Ite
 	FVector ZiplineVector = GetCurrentZipline()->GetZiplineDownVector();	
 	FVector Delta = deltaTime * (ZiplineVector * ZipliningSpeed);
 	FVector TargetDelta = CurrentZipline->GetLowerPoleLocation()-GetActorLocation();
+	FRotator TargetRotation = deltaTime * (ZiplineVector.ToOrientationRotator() - GCPlayerCharacter->GetActorRotation()) + GCPlayerCharacter->GetActorRotation();
 
+	TargetRotation.Pitch = 0;
+
+	
 	if (TargetDelta.Size()< CurrentZipline->GetZiplineJumpOffThreshold())
 	{
 		DetachFromZipline();
@@ -688,13 +694,18 @@ void UGCBaseCharacterMovementComponent::PhysZiplining(float deltaTime, int32 Ite
 
 	FVector Projection = CurrentZipline->GetCableHighestPoint() + FVector::DotProduct(CharacterVector, CableVector) / FVector::DotProduct(CableVector, CableVector) * CableVector;
 
-	float MSpeed = 0.0001;
+	float MSpeed = 10;
+	float CapsuleHalfHeight = 50;
+
 	FVector DeltaHand = (Projection - HandLocation) / MSpeed ;
 
+	if (HandLocation.Z < GetActorLocation().Z + CapsuleHalfHeight)
+	{
+		DeltaHand = FVector::ZeroVector;
+	}
+
 	FHitResult Hit;
-	SafeMoveUpdatedComponent(Delta+DeltaHand, GetOwner()->GetActorRotation(), false, Hit);
-	DrawDebugSphere(GetWorld(), HandLocation, 10, 16, FColor::Red, false, 0.1);
-	DrawDebugSphere(GetWorld(), Projection, 7, 16, FColor::Green, false, 0.1);
+	SafeMoveUpdatedComponent(Delta+DeltaHand, TargetRotation, false, Hit);
 }
 
 bool UGCBaseCharacterMovementComponent::CanMantleInCurrentState()
