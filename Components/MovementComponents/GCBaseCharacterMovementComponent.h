@@ -41,6 +41,7 @@ enum class ECustomMovementMode :uint8
 	CMOVE_Mantling		 UMETA(DisplayName = "Mantling" ),
 	CMOVE_ClimbingLadder UMETA(DisplayName = "Climbing" ),
 	CMOVE_Ziplining		 UMETA(DisplayName = "Ziplining"),
+	CMOVE_WallRunning	 UMETA(DisplayName = "WallRunning"),
 	CMOVE_Max			 UMETA(Hidden)
 };
 
@@ -53,6 +54,13 @@ enum class EDetachFromLadderMethod : uint8
 	Jump
 };
 
+UENUM(BlueprintType)
+enum class EWallRunningSide : uint8
+{
+	None =0,
+	Right,
+	Left, 
+};
 UCLASS()
 class XYZPROJECT_API UGCBaseCharacterMovementComponent : public UCharacterMovementComponent
 {
@@ -61,17 +69,20 @@ class XYZPROJECT_API UGCBaseCharacterMovementComponent : public UCharacterMoveme
 public:
 		
 	UGCBaseCharacterMovementComponent();
+	virtual void BeginPlay() override;
 
 	bool CrawlOverlapsWithSomething();
 		
-	
 	bool IsSprinting()    const { return bIsSprinting;	  }
 	bool IsOutOfStamina() const { return bIsOutOfStamina; }
 	bool IsCrawling()	  const	{ return bIsCrawling;     }
 	bool CanEverCrawl()	  const	{ return bCanCrawl;	      }
 	bool IsZiplining()	  const { return bIsZiplining;	  }
+	bool IsWallRunning()  const { return bIsWallRunning;  }
 	bool IsMantling()     const;
 	bool IsOnLadder()	  const;
+
+	EWallRunningSide GetWallRunningSide() const { return CurrentWallRunningSide; }
 
 	/** Returns true if the character is allowed to crawl in the current state.*/
 	bool CanCrawlInCurrentState();
@@ -81,7 +92,6 @@ public:
 	virtual void UpdateCharacterStateBeforeMovement(float DeltaSeconds) override;
 	virtual void UpdateCharacterStateAfterMovement(float DeltaSeconds)  override;
 	virtual void PhysicsRotation(float DeltaTime) override;
-	//virtual bool CanCrouchInCurrentState() const;
 	virtual void Crawl();
 	virtual void UnCrawl();
 
@@ -90,6 +100,10 @@ public:
 
 	void StartSprint();
 	void StopSprint();
+
+	void CheckForWallRunning(UPrimitiveComponent* Comp,const FHitResult& Hit);
+	void StartWallRunning(const FVector& WallNormal);
+	void EndWallRunning();
 
 	void StartMantle(const FMantlingMovementParameters& MantlingParams);
 	void EndMantle();
@@ -105,7 +119,9 @@ public:
 
 	const ALadder* GetCurrentLadder() { return CurrentLadder; }
 	const AZipline* GetCurrentZipline() { return CurrentZipline; }
+
 	
+
 	/** If true, try to crawl (or keep crawling) on next update. If false, try to stop crawling on next update. */
 	UPROPERTY(Category = "Character Movement | Crawl", VisibleInstanceOnly, BlueprintReadOnly)
 	bool bWantsToCrawl=false;
@@ -131,30 +147,42 @@ public:
 	
 
 protected:
-	/** Called after MovementMode has changed. Base implementation does special handling for starting certain modes, then notifies the CharacterOwner. */
+	
+	
 	virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode);
 	virtual void PhysCustom(float deltaTime, int32 Iterations) override;
 
+	// Custom physics functions 
 	void PhysMantling(float deltaTime, int32 Iterations);
 	void PhysClimbing(float deltaTime, int32 Iterations);
 	void PhysZiplining(float deltaTime, int32 Iterations);
+	void PhysWallRunning(float deltaTime, int32 Iterations);
+	// Custom physics functions 
+
+	bool AreWallRunningKeysPressed(const EWallRunningSide& CurrentSide) const;
+	FVector GetWallDirection(const FVector& WallNormal, const EWallRunningSide& CurrentSide) const;
 
 
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Swimming", meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Swimming", 
+				meta = (ClampMin = 0.0f, UIMin = 0.0f))
 	float SwimmingCapsuleHeight = 50.0f;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Swimming", meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Swimming", 
+				meta = (ClampMin = 0.0f, UIMin = 0.0f))
 	float SwimmingCapsuleRadius = 40.0f;
 
-	UPROPERTY(EditAnywhere,BlueprintReadOnly,Category= "Character movement| Sprint", meta= (ClampMin=0.0f, UIMin=0.0f))
+	UPROPERTY(EditAnywhere,BlueprintReadOnly,Category= "Character movement| Sprint",
+				meta= (ClampMin=0.0f, UIMin=0.0f))
 	float SprintSpeed=1200.0f;
 	
-	UPROPERTY(EditAnywhere,BlueprintReadOnly,Category= "Character movement| Sprint", meta= (ClampMin=0.0f, UIMin=0.0f))
+	UPROPERTY(EditAnywhere,BlueprintReadOnly,Category= "Character movement| Sprint", 
+				meta= (ClampMin=0.0f, UIMin=0.0f))
 	float OutOfStaminaMaxSpeed=200.0f;;
 
 	//some generic comment about prone speed
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement| Crawl", meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement| Crawl", 
+				meta = (ClampMin = 0.0f, UIMin = 0.0f))
 	float CrawlSpeed = 100.0f;
 	//can the character crawl?
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Character movement| Crawl")
@@ -163,29 +191,47 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Character movement | Crawl")
 	float CrawlingHalfHeight = 30;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Climbing", meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Climbing",
+				meta = (ClampMin = 0.0f, UIMin = 0.0f))
 	float ClimbingMaxSpeed = 200.0f;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Climbing", meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Climbing", 
+				meta = (ClampMin = 0.0f, UIMin = 0.0f))
 	float ClimbingDeceleration = 2048.0f;;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Climbing", meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Climbing", 
+				meta = (ClampMin = 0.0f, UIMin = 0.0f))
 	float LadderToCharacterOffset = 60.0f;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Climbing", meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Climbing", 
+				meta = (ClampMin = 0.0f, UIMin = 0.0f))
 	float MinClimbBottomOffset = 60.0f;;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Climbing", meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Climbing", 
+				meta = (ClampMin = 0.0f, UIMin = 0.0f))
 	float MaxClimbTopOffset = 100.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Climbing", meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Climbing", 
+				meta = (ClampMin = 0.0f, UIMin = 0.0f))
 	float JumpOffSpeed = 500.0f;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Ziplining", meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Ziplining", 
+				meta = (ClampMin = 0.0f, UIMin = 0.0f))
 	float ZipliningSpeed = 800.0f;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Ziplining")
-	UCurveVector* ZipliningCurve;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Wallrunning", 
+				meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	float WallRunningMaxSpeed = 500.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Wallrunning", 
+				meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	uint8 MaxNumberOfRunnableWalls = 3;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Wallrunning")
+	bool bIsWallrunningEnabled = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Character movement | Wallrunning")
+	UCurveFloat* WallRunningCurve;
 
 
 private:
@@ -193,14 +239,21 @@ private:
 	bool bIsOutOfStamina = false;
 	bool bIsCrawling	 = false;
 	bool bIsZiplining	 = false;
+	bool bIsWallRunning	 = false;
 	
 	float TargetMantlingTime = 1.0f;
+	
+	uint8 CurrentWallNumber = 0;
+	EWallRunningSide CurrentWallRunningSide = EWallRunningSide::None;
 
 	const ALadder*  CurrentLadder = nullptr;
 	const AZipline* CurrentZipline = nullptr;
 
 	FMantlingMovementParameters CurrentMantlingParameters;
+	
 	FTimerHandle MantlingTimer;
+	FTimerHandle WallRunningTimer;
+	
 	FRotator ForceTargetRotation = FRotator::ZeroRotator;
 	bool bForceRotation;
 };

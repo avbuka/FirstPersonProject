@@ -8,6 +8,20 @@
 #include "DrawDebugHelpers.h"
 #include "../Utils/ALSMathLibrary.h"
 
+UGCBaseCharacterMovementComponent::UGCBaseCharacterMovementComponent()
+{}
+
+void UGCBaseCharacterMovementComponent::BeginPlay()
+{
+	if (bIsWallrunningEnabled)
+	{
+		ensureMsgf(WallRunningCurve != nullptr,
+			TEXT("void UGCBaseCharacterMovementComponent::BeginPlay() Wallurrning is enabled, but the curve is nullptr"));
+
+	}
+	Super::BeginPlay();
+}
+
 void UGCBaseCharacterMovementComponent::SetIsOutOfStamina(bool bIsOutOfStamina_In)
 {
 	bIsOutOfStamina = bIsOutOfStamina_In;
@@ -48,6 +62,10 @@ float UGCBaseCharacterMovementComponent::GetMaxSpeed() const
 	else if (IsZiplining())
 	{
 		return ZipliningSpeed;
+	}
+	else if(bIsWallRunning)
+	{
+		return WallRunningMaxSpeed;
 	}
 
 
@@ -361,10 +379,6 @@ void UGCBaseCharacterMovementComponent::UnCrawl()
 	GCPlayerCharacter->OnCrawlEnd(HalfHeightAdjust, ScaledHalfHeightAdjust);
 }
 
-UGCBaseCharacterMovementComponent::UGCBaseCharacterMovementComponent()
-{
-}
-
 bool UGCBaseCharacterMovementComponent::CrawlOverlapsWithSomething()
 {
 	//perform the overlap test, using a character-sized box
@@ -429,23 +443,90 @@ void UGCBaseCharacterMovementComponent::StopSprint()
 	GCPlayerCharacter->TryChangeSprintState(GetWorld()->GetDeltaSeconds());
 }
 
+void UGCBaseCharacterMovementComponent::CheckForWallRunning(UPrimitiveComponent* Comp, const FHitResult& Hit)
+{
+	if (MovementMode != MOVE_Falling|| !Hit.bBlockingHit || CurrentWallNumber+1>MaxNumberOfRunnableWalls)
+	{
+		return; 
+	}
+	if (!Hit.bBlockingHit)
+	{
+		return ;
+	}
+	// check if we can switch to wall running
+
+	if (Hit.ImpactNormal.Z < GetWalkableFloorZ() && Hit.ImpactNormal.Z +KINDA_SMALL_NUMBER >= 0)
+	{
+		UStaticMeshComponent* Comp = Cast<UStaticMeshComponent>(Hit.GetComponent());
+		if (IsValid(Comp))
+		{
+			ECollisionResponse Response = Comp->GetCollisionResponseToChannel(ECC_WallRunnable);
+			if (Response == ECR_Block)
+			{
+				GEngine->AddOnScreenDebugMessage(12, 0.1, FColor::Green, TEXT("Found wallrunnable thing"));
+
+				EWallRunningSide CheckSide = EWallRunningSide::None;
+				if (FVector::DotProduct(GetOwner()->GetActorRightVector(), Hit.ImpactNormal)>0)
+				{
+					CheckSide = EWallRunningSide::Left;
+				}
+				else
+				{
+					CheckSide = EWallRunningSide::Right;
+
+				}
+				if (CurrentWallRunningSide == CheckSide)
+				{
+					return;
+				}
+				CurrentWallRunningSide = CheckSide;
+				StartWallRunning(Hit.ImpactNormal);
+
+			}
+		}
+	}
+
+}
+
+void UGCBaseCharacterMovementComponent::StartWallRunning(const FVector& WallNormal)
+{
+	FRichCurveKey LastKey = WallRunningCurve->FloatCurve.GetLastKey();
+
+	GetWorld()->GetTimerManager().SetTimer(WallRunningTimer, this, &UGCBaseCharacterMovementComponent::EndWallRunning, LastKey.Time);
+	
+	
+	bIsWallRunning = true;
+	CurrentWallNumber++;
+	SetPlaneConstraintEnabled(true);
+	SetPlaneConstraintNormal(FVector::UpVector);
+	SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_WallRunning);
+
+
+}
+
+void UGCBaseCharacterMovementComponent::EndWallRunning()
+{
+	
+	GetWorld()->GetTimerManager().ClearTimer(WallRunningTimer);
+	bIsWallRunning = false;
+
+	SetPlaneConstraintEnabled(false);
+	SetMovementMode(MOVE_Falling);
+	
+	GEngine->AddOnScreenDebugMessage(12, 2, FColor::Red, TEXT("End Wallrunning"));
+
+}
+
 void UGCBaseCharacterMovementComponent::StartMantle(const FMantlingMovementParameters& MantlingParams)
 {
 	CurrentMantlingParameters = MantlingParams;
 	SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_Mantling);
 	
-	//for debug DELETE later
-	GCPlayerCharacter->ToggleSlowmo();
-
-	
 }
 
 void UGCBaseCharacterMovementComponent::EndMantle()
 {
-	SetMovementMode(MOVE_Walking);	
-	
-	//for debug DELETE later
-	GCPlayerCharacter->ToggleSlowmo();
+	SetMovementMode(MOVE_Walking);
 }
 
 void UGCBaseCharacterMovementComponent::AttachToLadder(const class ALadder* Ladder)
@@ -479,8 +560,6 @@ void UGCBaseCharacterMovementComponent::AttachToLadder(const class ALadder* Ladd
 
 void UGCBaseCharacterMovementComponent::AttachToZipline(const class AZipline* Zipline)
 {
-	//GCPlayerCharacter->ToggleSlowmo();
-
 	CurrentZipline = Zipline;
 	bIsZiplining = true;
 	SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_Ziplining);
@@ -545,7 +624,6 @@ void UGCBaseCharacterMovementComponent::DetachFromLadder(EDetachFromLadderMethod
 void UGCBaseCharacterMovementComponent::DetachFromZipline()
 {
 	bIsZiplining = false;
-	//GCPlayerCharacter->ToggleSlowmo();
 	SetMovementMode(MOVE_Falling);
 }
 
@@ -574,8 +652,6 @@ void UGCBaseCharacterMovementComponent::OnMovementModeChanged(EMovementMode Prev
 				GetWorld()->GetTimerManager().SetTimer(MantlingTimer, this, &UGCBaseCharacterMovementComponent::EndMantle, CurrentMantlingParameters.Duration, false);
 				break;
 			}
-	
-
 		default:
 			break;
 		}
@@ -584,7 +660,18 @@ void UGCBaseCharacterMovementComponent::OnMovementModeChanged(EMovementMode Prev
 	if (MovementMode == MOVE_Custom && PreviousCustomMode == (uint8)ECustomMovementMode::CMOVE_ClimbingLadder)
 	{
 		CurrentLadder = nullptr;
-		
+	}
+	
+	if (PreviousCustomMode == (uint8)ECustomMovementMode::CMOVE_Ziplining)
+	{
+		CurrentZipline = nullptr;
+	}
+
+	//restoring the number of walls to run
+	if (IsMovingOnGround()&&CurrentWallNumber!=0)
+	{
+		CurrentWallNumber = 0;
+		CurrentWallRunningSide = EWallRunningSide::None;
 	}
 }
 
@@ -607,6 +694,12 @@ void UGCBaseCharacterMovementComponent::PhysCustom(float deltaTime, int32 Iterat
 	case  (uint8)ECustomMovementMode::CMOVE_Ziplining:
 	{
 		PhysZiplining(deltaTime, Iterations);
+		break;
+	}
+	
+	case  (uint8)ECustomMovementMode::CMOVE_WallRunning:
+	{
+		PhysWallRunning(deltaTime, Iterations);
 		break;
 	}
 	default:
@@ -711,6 +804,62 @@ void UGCBaseCharacterMovementComponent::PhysZiplining(float deltaTime, int32 Ite
 	if (Hit.bBlockingHit)
 	{
 		DetachFromZipline();
+	}
+}
+
+void UGCBaseCharacterMovementComponent::PhysWallRunning(float deltaTime, int32 Iterations)
+{
+
+	FHitResult Hit(1.0f);
+	FCollisionQueryParams Params;
+
+	Params.AddIgnoredActor(GetOwner());
+	Params.bDebugQuery = true;
+	Params.TraceTag = "WallRunningTag";
+	GetWorld()->DebugDrawTraceTag = "WallRunningTag";
+	
+	float LineTraceLength = 100.0f;
+	
+	
+	FVector LineTraceEnd = CurrentWallRunningSide==EWallRunningSide::Left ? -GetOwner()->GetActorRightVector(): GetOwner()->GetActorRightVector();
+	LineTraceEnd = LineTraceEnd*LineTraceLength + GetActorLocation();
+	
+	if (!GetWorld()->LineTraceSingleByChannel(Hit, GetActorLocation(), LineTraceEnd , ECC_WallRunnable, Params)
+		|| !AreWallRunningKeysPressed(CurrentWallRunningSide))
+	{
+		EndWallRunning();
+	}
+
+	FVector WallDirection = GetWallDirection(Hit.ImpactNormal, CurrentWallRunningSide);
+
+
+	SafeMoveUpdatedComponent(WallDirection*GetMaxSpeed()*deltaTime, WallDirection.ToOrientationQuat(),true,Hit);	
+}
+
+bool UGCBaseCharacterMovementComponent::AreWallRunningKeysPressed(const EWallRunningSide& CurrentSide) const
+{
+
+	FVector InputVector = GetLastInputVector();
+	FVector WallSideVector = CurrentSide == EWallRunningSide::Right ? GetOwner()->GetActorRightVector(): -GetOwner()->GetActorRightVector();
+
+	DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + InputVector * 200, FColor::Red, false, 0.01,(uint8)0U,3);
+
+	return FVector::DotProduct(WallSideVector, InputVector) > 0 ? true : false;
+}
+
+
+
+FVector UGCBaseCharacterMovementComponent::GetWallDirection(const FVector& WallNormal, const EWallRunningSide& CurrentSide) const
+{
+	if (CurrentSide == EWallRunningSide::Right)
+	{
+		return FVector::CrossProduct(FVector::UpVector, WallNormal);
+
+	}
+	else
+	{
+		return FVector::CrossProduct(WallNormal, FVector::UpVector);
+
 	}
 }
 

@@ -36,6 +36,8 @@ void AGCBaseCharacter::BeginPlay()
 	Super::BeginPlay();
 	GCBaseCharacterMovementComponent->GCPlayerCharacter = StaticCast<AGCPlayerCharacter*>(this);
 	CurrentStamina = MaxStamina;
+	GetCapsuleComponent()->OnComponentHit.AddDynamic(this, &AGCPlayerCharacter::OnCapsuleHit);
+
 }
 
 
@@ -358,9 +360,6 @@ void AGCBaseCharacter::Mantle(bool bForce )
 
 		GetCharacterBaseMovementComponent()->bWantsToMantle = false;
 	}
-	//GetCharacterBaseMovementComponent()->bWantsToMantle = false;
-	//Jump();
-
 }
 
 bool AGCBaseCharacter::CanMantle()
@@ -385,6 +384,11 @@ void AGCBaseCharacter::StopSprint()
 
 
 
+
+void AGCBaseCharacter::OnCapsuleHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+	GetCharacterBaseMovementComponent()->CheckForWallRunning(OtherComp, Hit);
+}
 
 bool AGCBaseCharacter::CanSprint()
 {

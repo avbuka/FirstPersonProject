@@ -44,7 +44,7 @@ void AGCPlayerCharacter::MoveForward(float Value)
 {
 	InputForward = Value;
 
-	if (GetCharacterMovement()->IsMovingOnGround() || GetCharacterMovement()->IsFalling()
+	if (GetCharacterMovement()->IsMovingOnGround()|| GetCharacterBaseMovementComponent()->IsWallRunning() || GetCharacterMovement()->IsFalling()
 		&& (!FMath::IsNearlyZero(Value, 1e-6f)))
 	{
 		FRotator YawRotator(0.0f, GetControlRotation().Yaw, 0.0f);
@@ -56,7 +56,7 @@ void AGCPlayerCharacter::MoveForward(float Value)
 
 void AGCPlayerCharacter::MoveRight(float Value)
 {
-	if (GetCharacterMovement()->IsMovingOnGround() ||GetCharacterMovement()->IsFalling()
+	if (GetCharacterMovement()->IsMovingOnGround() ||GetCharacterBaseMovementComponent()->IsWallRunning() ||GetCharacterMovement()->IsFalling()
 		&& (!FMath::IsNearlyZero(Value, 1e-6f)))
 	{
 		InputRight = Value;

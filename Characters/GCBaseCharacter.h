@@ -142,6 +142,9 @@ protected:
 	UFUNCTION(BlueprintNativeEvent, Category = "Character | Movement")
 	void OnSprintStop();
 	virtual void OnSprintStop_Implementation()PURE_VIRTUAL(AGCBaseCharacter::OnSprintStart_Implementation(), );
+	
+	UFUNCTION()
+	void OnCapsuleHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Character | IK Settings")
 	FName LeftFootSocketName;
