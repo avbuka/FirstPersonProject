@@ -868,10 +868,6 @@ void UGCBaseCharacterMovementComponent::PhysWallRunning(float deltaTime, int32 I
 	FCollisionQueryParams Params;
 
 	Params.AddIgnoredActor(GetOwner());
-	Params.bDebugQuery = true;
-	Params.TraceTag = "WallRunningTag";
-	GetWorld()->DebugDrawTraceTag = "WallRunningTag";
-	
 	float LineTraceLength = 100.0f;
 	
 	
