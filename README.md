@@ -1,10 +1,19 @@
-## FirstPersonProject
+# FirstPersonProject
 A project for learning Unreal and implementing all sorts of cool stuff. The main version control is Perforce.
+
+## Details
+
+### Movement 
+#### Mantling
+The character can mantle over high and low obstacles. Two distinct animations are played. Ledge detector component performs 3 checks (forward, top-down and overlap) to ensure we can mantle and only then we perform it.
+
+![High Mantling GIF](Pictures/High Mantle GIf.gif) 
+
 
 ## TODO
 Movement:
-1) Finish Zipline
-2) Add wallrunning
+~~1) Finish Zipline
+~~2) Add wallrunning
 3) Add sliding
 
 Character:
