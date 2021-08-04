@@ -51,7 +51,6 @@ public:
 	AGCBaseCharacter(const FObjectInitializer& ObjectInitializer);
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void BeginPlay() override;
-	
 
 	virtual void MoveForward(float Value) {};
 	virtual void MoveRight(float Value) {};
@@ -73,7 +72,8 @@ public:
 	//@set true you want to forcibly initiate Mantling
 	virtual void Mantle(bool bForce=false);
 	virtual bool CanMantle();
-	virtual bool  CanJumpInternal_Implementation() const;
+	virtual bool CanJumpInternal_Implementation() const;
+	virtual void Jump() override;
 
 	virtual void ClimbLadderUp(float Value);
 	virtual void InteractWithLadder();

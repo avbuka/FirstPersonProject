@@ -114,7 +114,7 @@ void AGCBaseCharacter::InteractWithLadder()
 {
 	if (GetCharacterBaseMovementComponent()->IsOnLadder())
 	{
-		GetCharacterBaseMovementComponent()->DetachFromLadder(EDetachFromLadderMethod::Jump);
+		GetCharacterBaseMovementComponent()->DetachFromLadder(EGCDetachMethod::Jump);
 	}
 	else
 	{
@@ -217,6 +217,20 @@ void AGCBaseCharacter::UpdateIKSettings(float DeltaSeconds)
 	{
 		IKHipOffset = FMath::FInterpTo(IKHipOffset, 0, DeltaSeconds, IKInterpSpeed);
 	}
+}
+
+void AGCBaseCharacter::Jump()
+{
+	if (GetCharacterBaseMovementComponent() != nullptr && GetCharacterBaseMovementComponent()->IsValidLowLevelFast())
+	{
+		if (GetCharacterBaseMovementComponent()->IsWallRunning() || GetCharacterBaseMovementComponent()->IsOnLadder())
+		{
+			GetCharacterBaseMovementComponent()->CustomJumpImplementation();
+			return;
+		}
+	}
+	Super::Jump();
+
 }
 
 void AGCBaseCharacter::ClimbLadderUp(float Value)

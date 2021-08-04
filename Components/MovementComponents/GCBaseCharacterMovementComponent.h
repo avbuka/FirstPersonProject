@@ -46,7 +46,7 @@ enum class ECustomMovementMode :uint8
 };
 
 UENUM(BlueprintType)
-enum class EDetachFromLadderMethod : uint8
+enum class EGCDetachMethod : uint8
 {
 	Fall = 0,
 	ReachingTheTop,
@@ -103,7 +103,8 @@ public:
 
 	void CheckForWallRunning(UPrimitiveComponent* Comp,const FHitResult& Hit);
 	void StartWallRunning(const FVector& WallNormal);
-	void EndWallRunning();
+	void EndWallRunning(EGCDetachMethod Method=EGCDetachMethod::Fall);
+	void WallRunningTimeOut();
 
 	void StartMantle(const FMantlingMovementParameters& MantlingParams);
 	void EndMantle();
@@ -114,12 +115,13 @@ public:
 	float GetActorToCurrentLadderProjection(const FVector& Location) const; 
 	float GetLadderSpeedRatio() const;
 
-	void DetachFromLadder(EDetachFromLadderMethod DMethod = EDetachFromLadderMethod::Fall);
+	void DetachFromLadder(EGCDetachMethod DMethod = EGCDetachMethod::Fall);
 	void DetachFromZipline();
 
 	const ALadder* GetCurrentLadder() { return CurrentLadder; }
 	const AZipline* GetCurrentZipline() { return CurrentZipline; }
 
+	void CustomJumpImplementation();
 	
 
 	/** If true, try to crawl (or keep crawling) on next update. If false, try to stop crawling on next update. */

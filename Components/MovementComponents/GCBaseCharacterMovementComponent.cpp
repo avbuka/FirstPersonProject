@@ -492,7 +492,7 @@ void UGCBaseCharacterMovementComponent::StartWallRunning(const FVector& WallNorm
 {
 	FRichCurveKey LastKey = WallRunningCurve->FloatCurve.GetLastKey();
 
-	GetWorld()->GetTimerManager().SetTimer(WallRunningTimer, this, &UGCBaseCharacterMovementComponent::EndWallRunning, LastKey.Time);
+	GetWorld()->GetTimerManager().SetTimer(WallRunningTimer, this, &UGCBaseCharacterMovementComponent::WallRunningTimeOut, LastKey.Time);
 	
 	
 	bIsWallRunning = true;
@@ -504,29 +504,69 @@ void UGCBaseCharacterMovementComponent::StartWallRunning(const FVector& WallNorm
 
 }
 
-void UGCBaseCharacterMovementComponent::EndWallRunning()
+
+void UGCBaseCharacterMovementComponent::EndWallRunning(EGCDetachMethod Method/*=EGCDetachMethod::Fall*/)
 {
-	
+	switch (Method)
+	{
+	case EGCDetachMethod::Fall:
+	{
+
+		SetMovementMode(MOVE_Falling);
+
+		GEngine->AddOnScreenDebugMessage(12, 2, FColor::Red, TEXT("End Wallrunning"));
+		break;
+	}		
+	case EGCDetachMethod::Jump:
+	{
+		FVector JumpDirection= FVector::ZeroVector;
+
+		switch (CurrentWallRunningSide)
+		{
+		case EWallRunningSide::None:
+			break;
+		case EWallRunningSide::Right:
+			JumpDirection = GCPlayerCharacter->GetActorForwardVector() - GCPlayerCharacter->GetActorRightVector();
+			break;
+		case EWallRunningSide::Left:
+			JumpDirection = GCPlayerCharacter->GetActorForwardVector() + GCPlayerCharacter->GetActorRightVector();
+			break;
+		default:
+			break;
+		}
+		JumpDirection.Z = 0.5;
+		FVector JumpVelocity = JumpDirection * WallRunningMaxSpeed;
+		ForceTargetRotation = JumpDirection.ToOrientationRotator();
+		bForceRotation = true;
+		SetMovementMode(MOVE_Falling);
+		Launch(JumpVelocity);
+		break;
+	}
+	default:
+		break;
+	}
+
 	GetWorld()->GetTimerManager().ClearTimer(WallRunningTimer);
 	bIsWallRunning = false;
 
 	SetPlaneConstraintEnabled(false);
-	SetMovementMode(MOVE_Falling);
-	
-	GEngine->AddOnScreenDebugMessage(12, 2, FColor::Red, TEXT("End Wallrunning"));
+}
 
+void UGCBaseCharacterMovementComponent::WallRunningTimeOut()
+{
+	EndWallRunning(EGCDetachMethod::Fall);
 }
 
 void UGCBaseCharacterMovementComponent::StartMantle(const FMantlingMovementParameters& MantlingParams)
 {
 	CurrentMantlingParameters = MantlingParams;
 	SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_Mantling);
-	
+
 }
 
 void UGCBaseCharacterMovementComponent::EndMantle()
 {
-	SetMovementMode(MOVE_Walking);
+	SetMovementMode(MOVE_Walking);	
 }
 
 void UGCBaseCharacterMovementComponent::AttachToLadder(const class ALadder* Ladder)
@@ -583,29 +623,28 @@ float UGCBaseCharacterMovementComponent::GetLadderSpeedRatio() const
 	return FVector::DotProduct(LadderUpVector, Velocity) / ClimbingMaxSpeed;
 }
 
-void UGCBaseCharacterMovementComponent::DetachFromLadder(EDetachFromLadderMethod DMethod/*= Fall*/)
+void UGCBaseCharacterMovementComponent::DetachFromLadder(EGCDetachMethod DMethod/*= Fall*/)
 {
 	switch (DMethod)
 	{
-	case EDetachFromLadderMethod::Fall:
-	{
-		
+	case EGCDetachMethod::Fall:
+	{		
 		SetMovementMode(MOVE_Falling);
 		break;
 	}
-	case EDetachFromLadderMethod::ReachingTheTop:
+	case EGCDetachMethod::ReachingTheTop:
 	{
 		
 		GCPlayerCharacter->Mantle(true);
 		break;
 	}
-	case EDetachFromLadderMethod::ReachingTheBottom:
+	case EGCDetachMethod::ReachingTheBottom:
 	{
 		
 		SetMovementMode(MOVE_Walking);
 		break;
 	}
-	case EDetachFromLadderMethod::Jump:
+	case EGCDetachMethod::Jump:
 	{
 		
 		FVector JumpDirection = CurrentLadder->GetActorForwardVector();
@@ -625,6 +664,21 @@ void UGCBaseCharacterMovementComponent::DetachFromZipline()
 {
 	bIsZiplining = false;
 	SetMovementMode(MOVE_Falling);
+}
+
+void UGCBaseCharacterMovementComponent::CustomJumpImplementation()
+{
+	if (IsOnLadder())
+	{
+		DetachFromLadder(EGCDetachMethod::Jump);
+		return;
+	}
+	if (IsWallRunning())
+	{
+		EndWallRunning(EGCDetachMethod::Jump);
+		return;
+	}
+
 }
 
 void UGCBaseCharacterMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
@@ -661,7 +715,7 @@ void UGCBaseCharacterMovementComponent::OnMovementModeChanged(EMovementMode Prev
 	{
 		CurrentLadder = nullptr;
 	}
-	
+		
 	if (PreviousCustomMode == (uint8)ECustomMovementMode::CMOVE_Ziplining)
 	{
 		CurrentZipline = nullptr;
@@ -696,7 +750,7 @@ void UGCBaseCharacterMovementComponent::PhysCustom(float deltaTime, int32 Iterat
 		PhysZiplining(deltaTime, Iterations);
 		break;
 	}
-	
+
 	case  (uint8)ECustomMovementMode::CMOVE_WallRunning:
 	{
 		PhysWallRunning(deltaTime, Iterations);
@@ -753,11 +807,11 @@ void UGCBaseCharacterMovementComponent::PhysClimbing(float deltaTime, int32 Iter
 
 	if (NewPosProjection < MinClimbBottomOffset && Delta.Z<0)
 	{
-		DetachFromLadder(EDetachFromLadderMethod::ReachingTheBottom);
+		DetachFromLadder(EGCDetachMethod::ReachingTheBottom);
 	}
 	else if(NewPosProjection> (CurrentLadder->GetLadderHeight()- MaxClimbTopOffset))
 	{
-		DetachFromLadder(EDetachFromLadderMethod::ReachingTheTop);
+		DetachFromLadder(EGCDetachMethod::ReachingTheTop);
 
 	}
 
@@ -828,6 +882,7 @@ void UGCBaseCharacterMovementComponent::PhysWallRunning(float deltaTime, int32 I
 		|| !AreWallRunningKeysPressed(CurrentWallRunningSide))
 	{
 		EndWallRunning();
+		return;
 	}
 
 	FVector WallDirection = GetWallDirection(Hit.ImpactNormal, CurrentWallRunningSide);
@@ -838,16 +893,28 @@ void UGCBaseCharacterMovementComponent::PhysWallRunning(float deltaTime, int32 I
 
 bool UGCBaseCharacterMovementComponent::AreWallRunningKeysPressed(const EWallRunningSide& CurrentSide) const
 {
+	float Delta = 0.1;
 
-	FVector InputVector = GetLastInputVector();
-	FVector WallSideVector = CurrentSide == EWallRunningSide::Right ? GetOwner()->GetActorRightVector(): -GetOwner()->GetActorRightVector();
+	if (GCPlayerCharacter->GetInputForward() < Delta)
+	{
+		return false;
+	}
 
-	DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + InputVector * 200, FColor::Red, false, 0.01,(uint8)0U,3);
-
-	return FVector::DotProduct(WallSideVector, InputVector) > 0 ? true : false;
+	switch (CurrentSide)
+	{
+	case EWallRunningSide::Left:
+		{
+			return GCPlayerCharacter->GetInputRight() < -Delta;
+		}
+	case EWallRunningSide::Right:
+		{
+			return GCPlayerCharacter->GetInputRight() > Delta;
+		}
+	default:
+		break;
+	}
+	return false;
 }
-
-
 
 FVector UGCBaseCharacterMovementComponent::GetWallDirection(const FVector& WallNormal, const EWallRunningSide& CurrentSide) const
 {
