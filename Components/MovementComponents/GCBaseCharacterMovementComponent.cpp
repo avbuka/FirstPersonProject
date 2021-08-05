@@ -492,16 +492,10 @@ void UGCBaseCharacterMovementComponent::StartWallRunning(const FVector& WallNorm
 {
 	FRichCurveKey LastKey = WallRunningCurve->FloatCurve.GetLastKey();
 
-	GetWorld()->GetTimerManager().SetTimer(WallRunningTimer, this, &UGCBaseCharacterMovementComponent::WallRunningTimeOut, LastKey.Time);
-	
-	
+	GetWorld()->GetTimerManager().SetTimer(WallRunningTimer, this, &UGCBaseCharacterMovementComponent::WallRunningTimeOut, LastKey.Time);		
 	bIsWallRunning = true;
 	CurrentWallNumber++;
-	SetPlaneConstraintEnabled(true);
-	SetPlaneConstraintNormal(FVector::UpVector);
 	SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_WallRunning);
-
-
 }
 
 
@@ -511,9 +505,7 @@ void UGCBaseCharacterMovementComponent::EndWallRunning(EGCDetachMethod Method/*=
 	{
 	case EGCDetachMethod::Fall:
 	{
-
 		SetMovementMode(MOVE_Falling);
-
 		GEngine->AddOnScreenDebugMessage(12, 2, FColor::Red, TEXT("End Wallrunning"));
 		break;
 	}		
@@ -534,6 +526,7 @@ void UGCBaseCharacterMovementComponent::EndWallRunning(EGCDetachMethod Method/*=
 		default:
 			break;
 		}
+
 		JumpDirection.Z = 0.5;
 		FVector JumpVelocity = JumpDirection * WallRunningMaxSpeed;
 		ForceTargetRotation = JumpDirection.ToOrientationRotator();
@@ -547,9 +540,7 @@ void UGCBaseCharacterMovementComponent::EndWallRunning(EGCDetachMethod Method/*=
 	}
 
 	GetWorld()->GetTimerManager().ClearTimer(WallRunningTimer);
-	bIsWallRunning = false;
-
-	SetPlaneConstraintEnabled(false);
+	bIsWallRunning = false;	
 }
 
 void UGCBaseCharacterMovementComponent::WallRunningTimeOut()
@@ -736,13 +727,11 @@ void UGCBaseCharacterMovementComponent::PhysCustom(float deltaTime, int32 Iterat
 	case (uint8)ECustomMovementMode::CMOVE_Mantling:
 	{
 		PhysMantling(deltaTime,Iterations);
-
 		break;
 	}
 	case (uint8)ECustomMovementMode::CMOVE_ClimbingLadder:
 	{
 		PhysClimbing(deltaTime, Iterations);
-
 		break;
 	}
 	case  (uint8)ECustomMovementMode::CMOVE_Ziplining:
@@ -870,7 +859,7 @@ void UGCBaseCharacterMovementComponent::PhysWallRunning(float deltaTime, int32 I
 	Params.AddIgnoredActor(GetOwner());
 	float LineTraceLength = 100.0f;
 	
-	
+	FVector HitLocation;
 	FVector LineTraceEnd = CurrentWallRunningSide==EWallRunningSide::Left ? -GetOwner()->GetActorRightVector(): GetOwner()->GetActorRightVector();
 	LineTraceEnd = LineTraceEnd*LineTraceLength + GetActorLocation();
 	
@@ -880,11 +869,47 @@ void UGCBaseCharacterMovementComponent::PhysWallRunning(float deltaTime, int32 I
 		EndWallRunning();
 		return;
 	}
+	HitLocation = Hit.Location;
 
 	FVector WallDirection = GetWallDirection(Hit.ImpactNormal, CurrentWallRunningSide);
+	float ElapsedTime = GetWorld()->GetTimerManager().GetTimerElapsed(WallRunningTimer);
+	float DownCurveValue = WallRunningCurve->GetFloatValue(ElapsedTime);
+	FVector NewRotataion = WallDirection;
 
+	WallDirection.Z -= DownCurveValue;
+	WallDirection*= GetMaxSpeed() * deltaTime;
 
-	SafeMoveUpdatedComponent(WallDirection*GetMaxSpeed()*deltaTime, WallDirection.ToOrientationQuat(),true,Hit);	
+	SafeMoveUpdatedComponent(WallDirection, NewRotataion.ToOrientationQuat(),true,Hit);
+
+	// try to slide down 
+	if (Hit.bBlockingHit)
+	{		
+		float PreviousDistanceToWall = (HitLocation - GetActorLocation()).Size();
+		
+		LineTraceEnd = CurrentWallRunningSide == EWallRunningSide::Left ? -GetOwner()->GetActorRightVector() : GetOwner()->GetActorRightVector();
+		LineTraceEnd = LineTraceEnd * LineTraceLength + GetActorLocation()+WallDirection;
+
+		if (GetWorld()->LineTraceSingleByChannel(Hit, GetActorLocation() + WallDirection, LineTraceEnd, ECC_WallRunnable, Params))
+		{
+			float CurrentDistanceToWall = (Hit.Location - (GetActorLocation() + WallDirection)).Size();
+
+			//if we are closer to the wall
+			if (CurrentDistanceToWall < PreviousDistanceToWall)
+			{
+				FVector NewLocation =  WallDirection + (PreviousDistanceToWall-CurrentDistanceToWall) * Hit.ImpactNormal;
+
+				SafeMoveUpdatedComponent(NewLocation, NewRotataion.ToOrientationQuat(), true, Hit);
+				{
+					//we tried but god is not on our side
+					if (Hit.bBlockingHit)
+					{
+						EndWallRunning(EGCDetachMethod::Fall);
+					}
+				}
+			}
+		}
+				
+	}
 }
 
 bool UGCBaseCharacterMovementComponent::AreWallRunningKeysPressed(const EWallRunningSide& CurrentSide) const
