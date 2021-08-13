@@ -20,7 +20,7 @@ AZipline::AZipline()
 	CableSMComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Cable"));
 	CableSMComponent->SetupAttachment(RootComponent);
 	
-	InteractionVolume =CreateDefaultSubobject<UCapsuleComponent>(TEXT("InteractionVolume"));
+	InteractionVolume = CreateDefaultSubobject<UCapsuleComponent>(TEXT("InteractionVolume"));
 	
 	InteractionVolume->SetupAttachment(RootComponent);
 	InteractionVolume->SetCollisionProfileName(PawnCollisionProfileInteractionVolume);
@@ -34,15 +34,9 @@ AZipline::AZipline()
 
 bool AZipline::CanAttachToZipline(const FVector& ActorLocation)
 {
-	///offset to ensure that we grab something higher 
-	float Offset = 40;
-
-	if (LowestPoleLocation.Z + Offset < ActorLocation.Z )
-	{
-
-		return true;
-	}
-	return false;
+	// Offset to ensure that we grab something higher 
+	float Offset = 40;	
+	return LowestPoleLocation.Z + Offset < ActorLocation.Z;	
 }
 
 
@@ -68,8 +62,8 @@ void AZipline::SetLowestPopleAndZDownVector()
 	}
 
 	ZiplineDownVector.Normalize(1.0f);
-	CableHighestPoint = CableSMComponent->GetComponentLocation() - ZiplineDownVector * CableLength / 2;
-	CableLowestPoint  = CableSMComponent->GetComponentLocation() + ZiplineDownVector * CableLength / 2;
+	CableHighestPoint = CableSMComponent->GetComponentLocation() - ZiplineDownVector * CableLength * 0.5f;
+	CableLowestPoint  = CableSMComponent->GetComponentLocation() + ZiplineDownVector * CableLength * 0.5f;
 	ArrowComponent->SetWorldRotation(ZiplineDownVector.ToOrientationQuat());
 }
 
@@ -94,48 +88,40 @@ void AZipline::SetObjectType()
 
 void AZipline::OnConstruction(const FTransform& Transform)
 {
-
-
-	checkf(IsValid(CableSMComponent), TEXT("void AZipline::OnConstruction CableSMComponent is not valid"));
+	checkf(IsValid(CableSMComponent),	  TEXT("void AZipline::OnConstruction CableSMComponent is not valid"));
 	checkf(IsValid(FirstPoleSMComponent), TEXT("void AZipline::OnConstruction FirstPole is not valid"));
-	checkf(IsValid(SecondPoleSMComponent), TEXT("void AZipline::OnConstruction SecondPole is not valid"));
-	checkf(IsValid(InteractionVolume), TEXT("void AZipline::OnConstruction Interaction volume is not valid"));
+	checkf(IsValid(SecondPoleSMComponent),TEXT("void AZipline::OnConstruction SecondPole is not valid"));
+	checkf(IsValid(InteractionVolume),	  TEXT("void AZipline::OnConstruction Interaction volume is not valid"));
 
 	FTransform CableTransform;
 	FBox FirstPoleBox = FirstPoleSMComponent->GetStaticMesh()->GetBoundingBox();
 	FBox SecondPoleBox = SecondPoleSMComponent->GetStaticMesh()->GetBoundingBox();
 
-	//placing the cable in the middle 
+	// Placing the cable in the middle 
 
 	FVector DeltaVector = GetPoleTopLocation(SecondPoleSMComponent) - GetPoleTopLocation(FirstPoleSMComponent);
 	
 	float TargetCableLength = DeltaVector.Size();
-	float InitialCableLength = CableSMComponent->GetStaticMesh()->GetBoundingBox().GetExtent().X * 2;
+	float InitialCableLength = CableSMComponent->GetStaticMesh()->GetBoundingBox().GetExtent().X * 2.0f;
 
 	CableLength = TargetCableLength;
 
-	CableTransform.SetLocation((GetPoleTopLocation(SecondPoleSMComponent)+GetPoleTopLocation(FirstPoleSMComponent))/2 );
-	
-
-
+	CableTransform.SetLocation((GetPoleTopLocation(SecondPoleSMComponent)+GetPoleTopLocation(FirstPoleSMComponent)) * 0.5f);
 	CableTransform.SetScale3D(FVector(TargetCableLength / InitialCableLength, 1, 1));
 	CableTransform.SetRotation(DeltaVector.ToOrientationRotator().Quaternion());
 
 	CableSMComponent->SetWorldTransform(CableTransform);
 
-	//using the same transform with slight adjustments for the interaction volume
+	// Using the same transform with slight adjustments for the interaction volume
 	
 	CableTransform.SetScale3D(FVector(1));
 	InteractionVolume->SetWorldTransform(CableTransform);
 	InteractionVolume->AddLocalRotation(FRotator(90, 0, 0));
 	
 	UCapsuleComponent* InteractionCapsule = Cast<UCapsuleComponent>(InteractionVolume);
-	InteractionCapsule->SetCapsuleHalfHeight(TargetCableLength / 2);
+	InteractionCapsule->SetCapsuleHalfHeight(TargetCableLength * 0.5f);
 	
 	SetLowestPopleAndZDownVector();
-
-	
-
 }
 
 void AZipline::OnInteractionVolumeOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)

@@ -8,20 +8,6 @@
 #include "DrawDebugHelpers.h"
 #include "../Utils/ALSMathLibrary.h"
 
-UGCBaseCharacterMovementComponent::UGCBaseCharacterMovementComponent()
-{}
-
-void UGCBaseCharacterMovementComponent::BeginPlay()
-{
-	if (bIsWallrunningEnabled)
-	{
-		ensureMsgf(WallRunningCurve != nullptr,
-			TEXT("void UGCBaseCharacterMovementComponent::BeginPlay() Wallurrning is enabled, but the curve is nullptr"));
-
-	}
-	Super::BeginPlay();
-}
-
 void UGCBaseCharacterMovementComponent::SetIsOutOfStamina(bool bIsOutOfStamina_In)
 {
 	bIsOutOfStamina = bIsOutOfStamina_In;
@@ -62,10 +48,6 @@ float UGCBaseCharacterMovementComponent::GetMaxSpeed() const
 	else if (IsZiplining())
 	{
 		return ZipliningSpeed;
-	}
-	else if(bIsWallRunning)
-	{
-		return WallRunningMaxSpeed;
 	}
 
 
@@ -379,6 +361,10 @@ void UGCBaseCharacterMovementComponent::UnCrawl()
 	GCPlayerCharacter->OnCrawlEnd(HalfHeightAdjust, ScaledHalfHeightAdjust);
 }
 
+UGCBaseCharacterMovementComponent::UGCBaseCharacterMovementComponent()
+{
+}
+
 bool UGCBaseCharacterMovementComponent::CrawlOverlapsWithSomething()
 {
 	//perform the overlap test, using a character-sized box
@@ -443,116 +429,11 @@ void UGCBaseCharacterMovementComponent::StopSprint()
 	GCPlayerCharacter->TryChangeSprintState(GetWorld()->GetDeltaSeconds());
 }
 
-void UGCBaseCharacterMovementComponent::CheckForWallRunning(UPrimitiveComponent* Comp, const FHitResult& Hit)
-{
-	if (MovementMode != MOVE_Falling|| !Hit.bBlockingHit || CurrentWallNumber+1>MaxNumberOfRunnableWalls)
-	{
-		return; 
-	}
-	if (!Hit.bBlockingHit)
-	{
-		return ;
-	}
-	// check if we can switch to wall running
-
-	if (Hit.ImpactNormal.Z < GetWalkableFloorZ() && Hit.ImpactNormal.Z +KINDA_SMALL_NUMBER >= 0)
-	{
-		UStaticMeshComponent* Comp = Cast<UStaticMeshComponent>(Hit.GetComponent());
-		if (IsValid(Comp))
-		{
-			ECollisionResponse Response = Comp->GetCollisionResponseToChannel(ECC_WallRunnable);
-			if (Response == ECR_Block)
-			{
-				GEngine->AddOnScreenDebugMessage(12, 0.1, FColor::Green, TEXT("Found wallrunnable thing"));
-
-				EWallRunningSide CheckSide = EWallRunningSide::None;
-				if (FVector::DotProduct(GetOwner()->GetActorRightVector(), Hit.ImpactNormal)>0)
-				{
-					CheckSide = EWallRunningSide::Left;
-				}
-				else
-				{
-					CheckSide = EWallRunningSide::Right;
-
-				}
-				if (CurrentWallRunningSide == CheckSide)
-				{
-					return;
-				}
-				CurrentWallRunningSide = CheckSide;
-				StartWallRunning(Hit.ImpactNormal);
-
-			}
-		}
-	}
-
-}
-
-void UGCBaseCharacterMovementComponent::StartWallRunning(const FVector& WallNormal)
-{
-	FRichCurveKey LastKey = WallRunningCurve->FloatCurve.GetLastKey();
-
-	GetWorld()->GetTimerManager().SetTimer(WallRunningTimer, this, &UGCBaseCharacterMovementComponent::WallRunningTimeOut, LastKey.Time);		
-	bIsWallRunning = true;
-	CurrentWallNumber++;
-	SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_WallRunning);
-}
-
-
-void UGCBaseCharacterMovementComponent::EndWallRunning(EGCDetachMethod Method/*=EGCDetachMethod::Fall*/)
-{
-	switch (Method)
-	{
-	case EGCDetachMethod::Fall:
-	{
-		SetMovementMode(MOVE_Falling);
-		GEngine->AddOnScreenDebugMessage(12, 2, FColor::Red, TEXT("End Wallrunning"));
-		break;
-	}		
-	case EGCDetachMethod::Jump:
-	{
-		FVector JumpDirection= FVector::ZeroVector;
-
-		switch (CurrentWallRunningSide)
-		{
-		case EWallRunningSide::None:
-			break;
-		case EWallRunningSide::Right:
-			JumpDirection = GCPlayerCharacter->GetActorForwardVector() - GCPlayerCharacter->GetActorRightVector();
-			break;
-		case EWallRunningSide::Left:
-			JumpDirection = GCPlayerCharacter->GetActorForwardVector() + GCPlayerCharacter->GetActorRightVector();
-			break;
-		default:
-			break;
-		}
-
-		JumpDirection.Z = 0.5;
-		FVector JumpVelocity = JumpDirection * WallRunningMaxSpeed;
-		ForceTargetRotation = JumpDirection.ToOrientationRotator();
-		bForceRotation = true;
-		SetMovementMode(MOVE_Falling);
-		Launch(JumpVelocity);
-		break;
-	}
-	default:
-		break;
-	}
-
-	GetWorld()->GetTimerManager().ClearTimer(WallRunningTimer);
-	bIsWallRunning = false;	
-}
-
-void UGCBaseCharacterMovementComponent::WallRunningTimeOut()
-{
-	EndWallRunning(EGCDetachMethod::Fall);
-}
-
 void UGCBaseCharacterMovementComponent::StartMantle(const FMantlingMovementParameters& MantlingParams)
 {
 	CurrentMantlingParameters = MantlingParams;
 	SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_Mantling);
-
+	
 }
 
 void UGCBaseCharacterMovementComponent::EndMantle()
@@ -591,6 +472,7 @@ void UGCBaseCharacterMovementComponent::AttachToLadder(const class ALadder* Ladd
 
 void UGCBaseCharacterMovementComponent::AttachToZipline(const class AZipline* Zipline)
 {
+
 	CurrentZipline = Zipline;
 	bIsZiplining = true;
 	SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_Ziplining);
@@ -614,28 +496,29 @@ float UGCBaseCharacterMovementComponent::GetLadderSpeedRatio() const
 	return FVector::DotProduct(LadderUpVector, Velocity) / ClimbingMaxSpeed;
 }
 
-void UGCBaseCharacterMovementComponent::DetachFromLadder(EGCDetachMethod DMethod/*= Fall*/)
+void UGCBaseCharacterMovementComponent::DetachFromLadder(EDetachFromLadderMethod DMethod/*= Fall*/)
 {
 	switch (DMethod)
 	{
-	case EGCDetachMethod::Fall:
-	{		
+	case EDetachFromLadderMethod::Fall:
+	{
+		
 		SetMovementMode(MOVE_Falling);
 		break;
 	}
-	case EGCDetachMethod::ReachingTheTop:
+	case EDetachFromLadderMethod::ReachingTheTop:
 	{
 		
 		GCPlayerCharacter->Mantle(true);
 		break;
 	}
-	case EGCDetachMethod::ReachingTheBottom:
+	case EDetachFromLadderMethod::ReachingTheBottom:
 	{
 		
 		SetMovementMode(MOVE_Walking);
 		break;
 	}
-	case EGCDetachMethod::Jump:
+	case EDetachFromLadderMethod::Jump:
 	{
 		
 		FVector JumpDirection = CurrentLadder->GetActorForwardVector();
@@ -655,21 +538,6 @@ void UGCBaseCharacterMovementComponent::DetachFromZipline()
 {
 	bIsZiplining = false;
 	SetMovementMode(MOVE_Falling);
-}
-
-void UGCBaseCharacterMovementComponent::CustomJumpImplementation()
-{
-	if (IsOnLadder())
-	{
-		DetachFromLadder(EGCDetachMethod::Jump);
-		return;
-	}
-	if (IsWallRunning())
-	{
-		EndWallRunning(EGCDetachMethod::Jump);
-		return;
-	}
-
 }
 
 void UGCBaseCharacterMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
@@ -697,6 +565,8 @@ void UGCBaseCharacterMovementComponent::OnMovementModeChanged(EMovementMode Prev
 				GetWorld()->GetTimerManager().SetTimer(MantlingTimer, this, &UGCBaseCharacterMovementComponent::EndMantle, CurrentMantlingParameters.Duration, false);
 				break;
 			}
+	
+
 		default:
 			break;
 		}
@@ -705,18 +575,7 @@ void UGCBaseCharacterMovementComponent::OnMovementModeChanged(EMovementMode Prev
 	if (MovementMode == MOVE_Custom && PreviousCustomMode == (uint8)ECustomMovementMode::CMOVE_ClimbingLadder)
 	{
 		CurrentLadder = nullptr;
-	}
 		
-	if (PreviousCustomMode == (uint8)ECustomMovementMode::CMOVE_Ziplining)
-	{
-		CurrentZipline = nullptr;
-	}
-
-	//restoring the number of walls to run
-	if (IsMovingOnGround()&&CurrentWallNumber!=0)
-	{
-		CurrentWallNumber = 0;
-		CurrentWallRunningSide = EWallRunningSide::None;
 	}
 }
 
@@ -727,22 +586,18 @@ void UGCBaseCharacterMovementComponent::PhysCustom(float deltaTime, int32 Iterat
 	case (uint8)ECustomMovementMode::CMOVE_Mantling:
 	{
 		PhysMantling(deltaTime,Iterations);
+
 		break;
 	}
 	case (uint8)ECustomMovementMode::CMOVE_ClimbingLadder:
 	{
 		PhysClimbing(deltaTime, Iterations);
+
 		break;
 	}
 	case  (uint8)ECustomMovementMode::CMOVE_Ziplining:
 	{
 		PhysZiplining(deltaTime, Iterations);
-		break;
-	}
-
-	case  (uint8)ECustomMovementMode::CMOVE_WallRunning:
-	{
-		PhysWallRunning(deltaTime, Iterations);
 		break;
 	}
 	default:
@@ -796,11 +651,11 @@ void UGCBaseCharacterMovementComponent::PhysClimbing(float deltaTime, int32 Iter
 
 	if (NewPosProjection < MinClimbBottomOffset && Delta.Z<0)
 	{
-		DetachFromLadder(EGCDetachMethod::ReachingTheBottom);
+		DetachFromLadder(EDetachFromLadderMethod::ReachingTheBottom);
 	}
 	else if(NewPosProjection> (CurrentLadder->GetLadderHeight()- MaxClimbTopOffset))
 	{
-		DetachFromLadder(EGCDetachMethod::ReachingTheTop);
+		DetachFromLadder(EDetachFromLadderMethod::ReachingTheTop);
 
 	}
 
@@ -828,14 +683,15 @@ void UGCBaseCharacterMovementComponent::PhysZiplining(float deltaTime, int32 Ite
 	FVector CableVector = CurrentZipline->GetCableLowestPoint() - CurrentZipline->GetCableHighestPoint();
 	FVector CharacterVector = HandLocation - CurrentZipline->GetCableHighestPoint();
 
-	FVector Projection = CurrentZipline->GetCableHighestPoint() + FVector::DotProduct(CharacterVector, CableVector) / FVector::DotProduct(CableVector, CableVector) * CableVector;
+	FVector HandOnZiplineProjection = CurrentZipline->GetCableHighestPoint() + FVector::DotProduct(CharacterVector, CableVector) / FVector::DotProduct(CableVector, CableVector) * CableVector;
 
-	float MSpeed = 10;
-	float CapsuleHalfHeight = 50;
+	
+	float CapsuleHalfHeight = GCPlayerCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
 
-	FVector DeltaHand = (Projection - HandLocation) / MSpeed ;
+	FVector DeltaHand = (HandOnZiplineProjection - HandLocation) / CharacterToZiplineMoveSpeed;
 
-	if (HandLocation.Z < GetActorLocation().Z + CapsuleHalfHeight)
+	//don't move until we raise the hand above the head
+	if (HandLocation.Z < GetActorLocation().Z )
 	{
 		DeltaHand = FVector::ZeroVector;
 	}
@@ -847,107 +703,6 @@ void UGCBaseCharacterMovementComponent::PhysZiplining(float deltaTime, int32 Ite
 	if (Hit.bBlockingHit)
 	{
 		DetachFromZipline();
-	}
-}
-
-void UGCBaseCharacterMovementComponent::PhysWallRunning(float deltaTime, int32 Iterations)
-{
-
-	FHitResult Hit(1.0f);
-	FCollisionQueryParams Params;
-
-	Params.AddIgnoredActor(GetOwner());
-	float LineTraceLength = 100.0f;
-	
-	FVector HitLocation;
-	FVector LineTraceEnd = CurrentWallRunningSide==EWallRunningSide::Left ? -GetOwner()->GetActorRightVector(): GetOwner()->GetActorRightVector();
-	LineTraceEnd = LineTraceEnd*LineTraceLength + GetActorLocation();
-	
-	if (!GetWorld()->LineTraceSingleByChannel(Hit, GetActorLocation(), LineTraceEnd , ECC_WallRunnable, Params)
-		|| !AreWallRunningKeysPressed(CurrentWallRunningSide))
-	{
-		EndWallRunning();
-		return;
-	}
-	HitLocation = Hit.Location;
-
-	FVector WallDirection = GetWallDirection(Hit.ImpactNormal, CurrentWallRunningSide);
-	float ElapsedTime = GetWorld()->GetTimerManager().GetTimerElapsed(WallRunningTimer);
-	float DownCurveValue = WallRunningCurve->GetFloatValue(ElapsedTime);
-	FVector NewRotataion = WallDirection;
-
-	WallDirection.Z -= DownCurveValue;
-	WallDirection*= GetMaxSpeed() * deltaTime;
-
-	SafeMoveUpdatedComponent(WallDirection, NewRotataion.ToOrientationQuat(),true,Hit);
-
-	// try to slide down 
-	if (Hit.bBlockingHit)
-	{		
-		float PreviousDistanceToWall = (HitLocation - GetActorLocation()).Size();
-		
-		LineTraceEnd = CurrentWallRunningSide == EWallRunningSide::Left ? -GetOwner()->GetActorRightVector() : GetOwner()->GetActorRightVector();
-		LineTraceEnd = LineTraceEnd * LineTraceLength + GetActorLocation()+WallDirection;
-
-		if (GetWorld()->LineTraceSingleByChannel(Hit, GetActorLocation() + WallDirection, LineTraceEnd, ECC_WallRunnable, Params))
-		{
-			float CurrentDistanceToWall = (Hit.Location - (GetActorLocation() + WallDirection)).Size();
-
-			//if we are closer to the wall
-			if (CurrentDistanceToWall < PreviousDistanceToWall)
-			{
-				FVector NewLocation =  WallDirection + (PreviousDistanceToWall-CurrentDistanceToWall) * Hit.ImpactNormal;
-
-				SafeMoveUpdatedComponent(NewLocation, NewRotataion.ToOrientationQuat(), true, Hit);
-				{
-					//we tried but god is not on our side
-					if (Hit.bBlockingHit)
-					{
-						EndWallRunning(EGCDetachMethod::Fall);
-					}
-				}
-			}
-		}
-				
-	}
-}
-
-bool UGCBaseCharacterMovementComponent::AreWallRunningKeysPressed(const EWallRunningSide& CurrentSide) const
-{
-	float Delta = 0.1;
-
-	if (GCPlayerCharacter->GetInputForward() < Delta)
-	{
-		return false;
-	}
-
-	switch (CurrentSide)
-	{
-	case EWallRunningSide::Left:
-		{
-			return GCPlayerCharacter->GetInputRight() < -Delta;
-		}
-	case EWallRunningSide::Right:
-		{
-			return GCPlayerCharacter->GetInputRight() > Delta;
-		}
-	default:
-		break;
-	}
-	return false;
-}
-
-FVector UGCBaseCharacterMovementComponent::GetWallDirection(const FVector& WallNormal, const EWallRunningSide& CurrentSide) const
-{
-	if (CurrentSide == EWallRunningSide::Right)
-	{
-		return FVector::CrossProduct(FVector::UpVector, WallNormal);
-
-	}
-	else
-	{
-		return FVector::CrossProduct(WallNormal, FVector::UpVector);
-
 	}
 }
 

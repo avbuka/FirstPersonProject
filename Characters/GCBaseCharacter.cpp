@@ -36,8 +36,6 @@ void AGCBaseCharacter::BeginPlay()
 	Super::BeginPlay();
 	GCBaseCharacterMovementComponent->GCPlayerCharacter = StaticCast<AGCPlayerCharacter*>(this);
 	CurrentStamina = MaxStamina;
-	GetCapsuleComponent()->OnComponentHit.AddDynamic(this, &AGCPlayerCharacter::OnCapsuleHit);
-
 }
 
 
@@ -114,7 +112,7 @@ void AGCBaseCharacter::InteractWithLadder()
 {
 	if (GetCharacterBaseMovementComponent()->IsOnLadder())
 	{
-		GetCharacterBaseMovementComponent()->DetachFromLadder(EGCDetachMethod::Jump);
+		GetCharacterBaseMovementComponent()->DetachFromLadder(EDetachFromLadderMethod::Jump);
 	}
 	else
 	{
@@ -152,8 +150,7 @@ void AGCBaseCharacter::InteractWithIActor()
 {
 	if (InteractiveActors.Num() > 0)
 	{
-		// it is a good idea to find the closes actor if we have several and use it. in future
-		// also OOP ???
+		//TODO: it is a good idea to find the closest actor if we have several and use it. in future
 		AInteractiveActor* IActor = InteractiveActors.Last();
 
 		switch (IActor->GetObjectType())
@@ -172,10 +169,6 @@ void AGCBaseCharacter::InteractWithIActor()
 			break;
 		}
 	}
-
-	//for some extreme cases when we travel further than the zipline and unable to find it in the array
-	//InteractWithZipline();
-
 }
 
 const class ALadder* AGCBaseCharacter::GetAvailableLadder()
@@ -217,20 +210,6 @@ void AGCBaseCharacter::UpdateIKSettings(float DeltaSeconds)
 	{
 		IKHipOffset = FMath::FInterpTo(IKHipOffset, 0, DeltaSeconds, IKInterpSpeed);
 	}
-}
-
-void AGCBaseCharacter::Jump()
-{
-	if (GetCharacterBaseMovementComponent() != nullptr && GetCharacterBaseMovementComponent()->IsValidLowLevelFast())
-	{
-		if (GetCharacterBaseMovementComponent()->IsWallRunning() || GetCharacterBaseMovementComponent()->IsOnLadder())
-		{
-			GetCharacterBaseMovementComponent()->CustomJumpImplementation();
-			return;
-		}
-	}
-	Super::Jump();
-
 }
 
 void AGCBaseCharacter::ClimbLadderUp(float Value)
@@ -353,7 +332,7 @@ void AGCBaseCharacter::Mantle(bool bForce )
 		float MinRange = 0.0f;
 		float MaxRange = 0.0f;
 		
-
+		
 		MantlingSettings.MantlingCurve->GetTimeRange(MinRange, MaxRange);
 		MantlingParams.Duration = MaxRange - MinRange;
 
@@ -374,6 +353,7 @@ void AGCBaseCharacter::Mantle(bool bForce )
 
 		GetCharacterBaseMovementComponent()->bWantsToMantle = false;
 	}
+
 }
 
 bool AGCBaseCharacter::CanMantle()
@@ -398,11 +378,6 @@ void AGCBaseCharacter::StopSprint()
 
 
 
-
-void AGCBaseCharacter::OnCapsuleHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
-{
-	GetCharacterBaseMovementComponent()->CheckForWallRunning(OtherComp, Hit);
-}
 
 bool AGCBaseCharacter::CanSprint()
 {

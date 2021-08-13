@@ -45,7 +45,7 @@ void AGCPlayerController::MoveForward(float Value)
 		if (!ChachedBaseCharacter->GetMovementComponent()->IsSwimming())
 		{
 			ChachedBaseCharacter->MoveForward(Value);
-			
+
 		}
 	}
 }
@@ -109,6 +109,11 @@ void AGCPlayerController::Jump()
 			ChangeCrawlState();
 			return;
 		}
+		if (ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsZiplining())
+		{
+			ChachedBaseCharacter->GetCharacterBaseMovementComponent()->DetachFromZipline();
+			return;
+		}
 
 		ChachedBaseCharacter->Jump();
 	}
@@ -118,8 +123,7 @@ void AGCPlayerController::Mantle()
 {
 	if (ChachedBaseCharacter.IsValid())
 	{
-		if (!ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsMantling() &&
-			!ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsWallRunning())
+		if (!ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsMantling())
 		{
 			ChachedBaseCharacter->Mantle();
 		}

@@ -34,9 +34,6 @@ void UGCBaseCharacterAniminstance::NativeUpdateAnimation(float DeltaSeconds)
 	bIsSwimming		= CharacterMovementC->IsSwimming();
 	bIsClimbing		= CharacterMovementC->IsOnLadder();
 	bIsZiplining	= CharacterMovementC->IsZiplining();
-	bIsWallRunning  = CharacterMovementC->IsWallRunning();
-
-	WallrunningSide = CharacterMovementC->GetWallRunningSide();
 	CharacterSpeed  = CharacterMovementC->Velocity.Size();
 	
 	if (bIsClimbing)
