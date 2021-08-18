@@ -89,6 +89,10 @@ bool UGCLedgeDetectorComponent::DetectLedge(OUT FLedgeDescription& LedgeDescript
 		return false;
 	}
 	
+	if (DownwardCheckHitResult.ImpactPoint.Z- CharacterBottom.Z < MinLedgeHeight)
+	{
+		return false;
+	}
 
 	//3. overlap check
 
@@ -103,6 +107,18 @@ bool UGCLedgeDetectorComponent::DetectLedge(OUT FLedgeDescription& LedgeDescript
 	
 	LedgeDescription.TranformWS = FTransform((ForwardCheckHitResult.ImpactNormal * FVector(-1.0, -1.0, 0)).ToOrientationRotator(), OverlapLocation-EdgeOffset*FVector::UpVector, FVector::OneVector);
 
+	//4. Sweep and hight check 
+	
+
+	FQuat CapsuleRotation = (OverlapLocation - ForwardStartLocation).ToOrientationQuat();
+	FVector AnimationStartPosition = ForwardCheckHitResult.ImpactNormal * OverlapCapsuleRadius *2+ForwardCheckHitResult.ImpactPoint;
+	
+	if (GCTraceUtils::SweepCapsuleSingleByChannel(GetWorld(), ForwardCheckHitResult, AnimationStartPosition, OverlapLocation, OverlapCapsuleRadius, OverlapCapsuleRadius, CapsuleRotation, ECC_Visibility, QueryParams,FCollisionResponseParams(),true,5.0f))
+	{
+		return false;
+	}
+
+	
 	return true;
 }
 

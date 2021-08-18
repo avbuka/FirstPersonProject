@@ -46,4 +46,5 @@ private:
 	TWeakObjectPtr<class ACharacter> CachedCharacterOwner;
 	
 	float OverlapCapsuleHalfHeight  = 0.0f;		
+	
 };
