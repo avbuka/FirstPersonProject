@@ -15,7 +15,7 @@ bool GCTraceUtils::SweepCapsuleSingleByChannel(const UWorld* InWorld, struct FHi
 
 		if (bResult)
 		{
-			//DrawDebugPoint(InWorld, OutHit.ImpactPoint, 10.f, HitColor, false, DrawTime);
+			DrawDebugPoint(InWorld, OutHit.ImpactPoint, 10.f, HitColor, false, DrawTime);
 		}
 
 	}
