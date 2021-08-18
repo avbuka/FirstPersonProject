@@ -7,6 +7,22 @@
 #include "GameFramework/CheatManager.h"
 #include "DrawDebugHelpers.h"
 #include "../Utils/ALSMathLibrary.h"
+#include "Camera/CameraComponent.h"
+#include "../Utils/GCTraceUtils.h"
+
+UGCBaseCharacterMovementComponent::UGCBaseCharacterMovementComponent()
+{}
+
+void UGCBaseCharacterMovementComponent::BeginPlay()
+{
+	if (bIsWallrunningEnabled)
+	{
+		ensureMsgf(WallRunningCurve != nullptr,
+			TEXT("void UGCBaseCharacterMovementComponent::BeginPlay() Wallurrning is enabled, but the curve is nullptr"));
+
+	}
+	Super::BeginPlay();
+}
 
 void UGCBaseCharacterMovementComponent::SetIsOutOfStamina(bool bIsOutOfStamina_In)
 {
@@ -49,6 +65,10 @@ float UGCBaseCharacterMovementComponent::GetMaxSpeed() const
 	{
 		return ZipliningSpeed;
 	}
+	else if(bIsWallRunning)
+	{
+		return WallRunningMaxSpeed;
+	}
 
 
 	return Super::GetMaxSpeed();
@@ -56,6 +76,7 @@ float UGCBaseCharacterMovementComponent::GetMaxSpeed() const
 
 void UGCBaseCharacterMovementComponent::UpdateCharacterStateBeforeMovement(float DeltaSeconds)
 {
+
 	Super::UpdateCharacterStateBeforeMovement(DeltaSeconds);
 
 	// proxies get replicated crawl state.
@@ -76,19 +97,26 @@ void UGCBaseCharacterMovementComponent::UpdateCharacterStateBeforeMovement(float
 			GCPlayerCharacter->Mantle();
 		}
 	}
+
 }
 
 void UGCBaseCharacterMovementComponent::UpdateCharacterStateAfterMovement(float DeltaSeconds)
 {
+
+	
 	Super::UpdateCharacterStateAfterMovement(DeltaSeconds);
 
 	// proxies get replicated crouch state 
 	if (CharacterOwner->GetLocalRole() != ROLE_SimulatedProxy)
 	{
-		//uncrawl if no longer allowed to crawl
+		// Uncrawl if no longer allowed to crawl
 		if (IsCrawling() && !CanCrawlInCurrentState())
 		{
 			UnCrawl();
+		}
+		if (bWantsToEndSlide)
+		{
+			EndSlide();
 		}
 	}
 
@@ -188,7 +216,8 @@ void UGCBaseCharacterMovementComponent::Crawl()
 
 
 	// Crawling to a larger height? (this is rare)
-	if (CrawlingHalfHeight > OldUnscaledHalfHeight)
+	if (CrawlingHalfHeight > OldUnscaledHalfHeight
+		)
 	{
 		FCollisionQueryParams CapsuleParams;
 		FCollisionResponseParams ResponseParam;
@@ -356,13 +385,8 @@ void UGCBaseCharacterMovementComponent::UnCrawl()
 	// Now call SetCapsuleSize() to cause touch/untouch events and actually grow the capsule
 	CharacterOwner->GetCapsuleComponent()->SetCapsuleSize(CharacterOwner->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), CrouchedHalfHeight, true);
 
-	const float MeshAdjust = ScaledHalfHeightAdjust;
 	AdjustProxyCapsuleSize();
-	GCPlayerCharacter->OnCrawlEnd(HalfHeightAdjust, ScaledHalfHeightAdjust);
-}
-
-UGCBaseCharacterMovementComponent::UGCBaseCharacterMovementComponent()
-{
+	GCPlayerCharacter->OnCrawlEnd(HalfHeightAdjust, ScaledHalfHeightAdjust);	
 }
 
 bool UGCBaseCharacterMovementComponent::CrawlOverlapsWithSomething()
@@ -429,6 +453,177 @@ void UGCBaseCharacterMovementComponent::StopSprint()
 	GCPlayerCharacter->TryChangeSprintState(GetWorld()->GetDeltaSeconds());
 }
 
+void UGCBaseCharacterMovementComponent::StartSlide()
+{
+	// We are sliding only when sprinting so we don't check for some weird stuff happening 
+
+	const float ComponentScale = GetCharacterOwner()->GetCapsuleComponent()->GetShapeScale();
+	const float OldUnscaledHalfHeight = GetCharacterOwner()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+	const float ScaledHeightAdjust = (OldUnscaledHalfHeight - SlidingCapsuleHalfHeight) * ComponentScale;
+	
+	GCPlayerCharacter->OnSlideStartEnd(ScaledHeightAdjust);
+	CharacterOwner->GetCapsuleComponent()->SetCapsuleHalfHeight(SlidingCapsuleHalfHeight * ComponentScale);
+
+	UpdatedComponent->MoveComponent(FVector(0.0f, 0.0f, -ScaledHeightAdjust), GetOwner()->GetActorRotation(), true, nullptr);
+	
+	bIsSliding = true;
+}
+
+
+void UGCBaseCharacterMovementComponent::SlidingTimerEnd()
+{
+	bWantsToEndSlide = true;
+}
+
+void UGCBaseCharacterMovementComponent::EndSlide()
+{
+
+	if (CanStandUp())
+	{		
+		AGCPlayerCharacter* DefaultCharacter = GetOwner()->GetClass()->GetDefaultObject<AGCPlayerCharacter>();
+		
+		const float ComponentScale = GetCharacterOwner()->GetCapsuleComponent()->GetShapeScale();
+		const float StandingHalfHeight = DefaultCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+		const float ScaledHeightAdjust = (StandingHalfHeight - SlidingCapsuleHalfHeight) * ComponentScale;
+
+		UpdatedComponent->MoveComponent(FVector(0.0f, 0.0f, ScaledHeightAdjust), UpdatedComponent->GetComponentQuat(), true, nullptr, EMoveComponentFlags::MOVECOMP_NoFlags, ETeleportType::TeleportPhysics);
+		GCPlayerCharacter->OnSlideStartEnd(-ScaledHeightAdjust);
+
+
+		CharacterOwner->GetCapsuleComponent()->SetCapsuleHalfHeight(StandingHalfHeight*ComponentScale);
+	}
+	else
+	{
+		// Assuming there's enough space for crouching instead of crawling
+		bWantsToCrouch = true;		
+	}
+
+	bWantsToEndSlide = false;
+	bIsSliding = false;
+}
+bool UGCBaseCharacterMovementComponent::CanStandUp()
+{
+	FVector Location = GCPlayerCharacter->GetActorLocation() + GCPlayerCharacter->GetActorUpVector()
+		* (GCPlayerCharacter->GetUnchrouchedHalfHeight() - SlidingCapsuleHalfHeight);
+	float CapsuleHalfHeight = GCPlayerCharacter->GetUnchrouchedHalfHeight();
+
+	const FName TraceTag("Slide");
+	FCollisionShape Shape = FCollisionShape::MakeCapsule(GCPlayerCharacter->GetCapsuleComponent()->GetScaledCapsuleRadius(),
+														 GCPlayerCharacter->GetUnchrouchedHalfHeight());
+
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(GetOwner());
+
+
+	return !GCTraceUtils::OverlapBlockingTestByProfile(GetWorld(), Location, Shape.Capsule.Radius, Shape.Capsule.HalfHeight, FQuat::Identity, PawnCollisionProfile, Params, true, 10.0f, FColor::Green);
+}
+
+
+void UGCBaseCharacterMovementComponent::CheckForWallRunning(UPrimitiveComponent* Comp, const FHitResult& Hit)
+{
+	if (MovementMode != MOVE_Falling|| !Hit.bBlockingHit || CurrentWallNumber+1>MaxNumberOfRunnableWalls)
+	{
+		return; 
+	}
+	if (!Hit.bBlockingHit)
+	{
+		return ;
+	}
+	// Check if we can switch to wall running
+
+	if (Hit.ImpactNormal.Z < GetWalkableFloorZ() && Hit.ImpactNormal.Z +KINDA_SMALL_NUMBER >= 0)
+	{
+		UStaticMeshComponent* Comp = Cast<UStaticMeshComponent>(Hit.GetComponent());
+		if (IsValid(Comp))
+		{
+			ECollisionResponse Response = Comp->GetCollisionResponseToChannel(ECC_WallRunnable);
+			if (Response == ECR_Block)
+			{
+				GEngine->AddOnScreenDebugMessage(12, 0.1, FColor::Green, TEXT("Found wallrunnable thing"));
+
+				EWallRunningSide CheckSide = EWallRunningSide::None;
+				if (FVector::DotProduct(GetOwner()->GetActorRightVector(), Hit.ImpactNormal)>0)
+				{
+					CheckSide = EWallRunningSide::Left;
+				}
+				else
+				{
+					CheckSide = EWallRunningSide::Right;
+
+				}
+				if (CurrentWallRunningSide == CheckSide)
+				{
+					return;
+				}
+				CurrentWallRunningSide = CheckSide;
+				StartWallRunning(Hit.ImpactNormal);
+
+			}
+		}
+	}
+
+}
+
+void UGCBaseCharacterMovementComponent::StartWallRunning(const FVector& WallNormal)
+{
+	FRichCurveKey LastKey = WallRunningCurve->FloatCurve.GetLastKey();
+
+	GetWorld()->GetTimerManager().SetTimer(WallRunningTimer, this, &UGCBaseCharacterMovementComponent::WallRunningTimeOut, LastKey.Time);		
+	bIsWallRunning = true;
+	CurrentWallNumber++;
+	SetMovementMode(MOVE_Custom, (uint8)ECustomMovementMode::CMOVE_WallRunning);
+}
+
+
+void UGCBaseCharacterMovementComponent::EndWallRunning(EGCDetachMethod Method/*=EGCDetachMethod::Fall*/)
+{
+	switch (Method)
+	{
+	case EGCDetachMethod::Fall:
+	{
+		SetMovementMode(MOVE_Falling);
+		GEngine->AddOnScreenDebugMessage(12, 2, FColor::Red, TEXT("End Wallrunning"));
+		break;
+	}		
+	case EGCDetachMethod::Jump:
+	{
+		FVector JumpDirection= FVector::ZeroVector;
+
+		switch (CurrentWallRunningSide)
+		{
+		case EWallRunningSide::None:
+			break;
+		case EWallRunningSide::Right:
+			JumpDirection = GCPlayerCharacter->GetActorForwardVector() - GCPlayerCharacter->GetActorRightVector();
+			break;
+		case EWallRunningSide::Left:
+			JumpDirection = GCPlayerCharacter->GetActorForwardVector() + GCPlayerCharacter->GetActorRightVector();
+			break;
+		default:
+			break;
+		}
+
+		JumpDirection.Z = 0.5;
+		FVector JumpVelocity = JumpDirection * WallRunningMaxSpeed;
+		ForceTargetRotation = JumpDirection.ToOrientationRotator();
+		bForceRotation = true;
+		SetMovementMode(MOVE_Falling);
+		Launch(JumpVelocity);
+		break;
+	}
+	default:
+		break;
+	}
+
+	GetWorld()->GetTimerManager().ClearTimer(WallRunningTimer);
+	bIsWallRunning = false;	
+}
+
+void UGCBaseCharacterMovementComponent::WallRunningTimeOut()
+{
+	EndWallRunning(EGCDetachMethod::Fall);
+}
+
 void UGCBaseCharacterMovementComponent::StartMantle(const FMantlingMovementParameters& MantlingParams)
 {
 	CurrentMantlingParameters = MantlingParams;
@@ -443,12 +638,15 @@ void UGCBaseCharacterMovementComponent::EndMantle()
 
 void UGCBaseCharacterMovementComponent::AttachToLadder(const class ALadder* Ladder)
 {
-	CurrentLadder = Ladder;
-	FRotator TargetOrientationRotation = CurrentLadder->GetActorForwardVector().ToOrientationRotator();
-	FVector NewCharacterLocation = FVector::ZeroVector;
+	//TODO Fix different angles! 
 
-	TargetOrientationRotation.Yaw += 180.0f;
+	CurrentLadder = Ladder;
+	FRotator TargetOrientationRotation = CurrentLadder->GetActorRotation();
+	FVector NewCharacterLocation = FVector::ZeroVector;
 	
+	//TargetOrientationRotation.Yaw = (-CurrentLadder->GetActorForwardVector()).ToOrientationRotator().Yaw;
+	
+	GEngine->AddOnScreenDebugMessage(21, 40.0f, FColor::Blue, CurrentLadder->GetActorUpVector().ToString());
 
 	GetActorToCurrentLadderProjection(GetActorLocation());
 
@@ -496,29 +694,28 @@ float UGCBaseCharacterMovementComponent::GetLadderSpeedRatio() const
 	return FVector::DotProduct(LadderUpVector, Velocity) / ClimbingMaxSpeed;
 }
 
-void UGCBaseCharacterMovementComponent::DetachFromLadder(EDetachFromLadderMethod DMethod/*= Fall*/)
+void UGCBaseCharacterMovementComponent::DetachFromLadder(EGCDetachMethod DMethod/*= Fall*/)
 {
 	switch (DMethod)
 	{
-	case EDetachFromLadderMethod::Fall:
+	case EGCDetachMethod::Fall:
 	{
-		
 		SetMovementMode(MOVE_Falling);
 		break;
 	}
-	case EDetachFromLadderMethod::ReachingTheTop:
+	case EGCDetachMethod::ReachingTheTop:
 	{
 		
 		GCPlayerCharacter->Mantle(true);
 		break;
 	}
-	case EDetachFromLadderMethod::ReachingTheBottom:
+	case EGCDetachMethod::ReachingTheBottom:
 	{
 		
 		SetMovementMode(MOVE_Walking);
 		break;
 	}
-	case EDetachFromLadderMethod::Jump:
+	case EGCDetachMethod::Jump:
 	{
 		
 		FVector JumpDirection = CurrentLadder->GetActorForwardVector();
@@ -538,6 +735,21 @@ void UGCBaseCharacterMovementComponent::DetachFromZipline()
 {
 	bIsZiplining = false;
 	SetMovementMode(MOVE_Falling);
+}
+
+void UGCBaseCharacterMovementComponent::CustomJumpImplementation()
+{
+	if (IsOnLadder())
+	{
+		DetachFromLadder(EGCDetachMethod::Jump);
+		return;
+	}
+	if (IsWallRunning())
+	{
+		EndWallRunning(EGCDetachMethod::Jump);
+		return;
+	}
+
 }
 
 void UGCBaseCharacterMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
@@ -560,13 +772,10 @@ void UGCBaseCharacterMovementComponent::OnMovementModeChanged(EMovementMode Prev
 		switch (CustomMovementMode)
 		{
 			case (uint8)ECustomMovementMode::CMOVE_Mantling:
-			{						
-				
+			{										
 				GetWorld()->GetTimerManager().SetTimer(MantlingTimer, this, &UGCBaseCharacterMovementComponent::EndMantle, CurrentMantlingParameters.Duration, false);
 				break;
 			}
-	
-
 		default:
 			break;
 		}
@@ -575,7 +784,18 @@ void UGCBaseCharacterMovementComponent::OnMovementModeChanged(EMovementMode Prev
 	if (MovementMode == MOVE_Custom && PreviousCustomMode == (uint8)ECustomMovementMode::CMOVE_ClimbingLadder)
 	{
 		CurrentLadder = nullptr;
+	}
 		
+	if (PreviousCustomMode == (uint8)ECustomMovementMode::CMOVE_Ziplining)
+	{
+		CurrentZipline = nullptr;
+	}
+
+	//restoring the number of walls to run
+	if (IsMovingOnGround()&&CurrentWallNumber!=0)
+	{
+		CurrentWallNumber = 0;
+		CurrentWallRunningSide = EWallRunningSide::None;
 	}
 }
 
@@ -586,7 +806,6 @@ void UGCBaseCharacterMovementComponent::PhysCustom(float deltaTime, int32 Iterat
 	case (uint8)ECustomMovementMode::CMOVE_Mantling:
 	{
 		PhysMantling(deltaTime,Iterations);
-
 		break;
 	}
 	case (uint8)ECustomMovementMode::CMOVE_ClimbingLadder:
@@ -600,6 +819,12 @@ void UGCBaseCharacterMovementComponent::PhysCustom(float deltaTime, int32 Iterat
 		PhysZiplining(deltaTime, Iterations);
 		break;
 	}
+	case  (uint8)ECustomMovementMode::CMOVE_WallRunning:
+	{
+		PhysWallRunning(deltaTime, Iterations);
+		break;
+	}
+
 	default:
 		break;
 	}
@@ -651,11 +876,11 @@ void UGCBaseCharacterMovementComponent::PhysClimbing(float deltaTime, int32 Iter
 
 	if (NewPosProjection < MinClimbBottomOffset && Delta.Z<0)
 	{
-		DetachFromLadder(EDetachFromLadderMethod::ReachingTheBottom);
+		DetachFromLadder(EGCDetachMethod::ReachingTheBottom);
 	}
 	else if(NewPosProjection> (CurrentLadder->GetLadderHeight()- MaxClimbTopOffset))
 	{
-		DetachFromLadder(EDetachFromLadderMethod::ReachingTheTop);
+		DetachFromLadder(EGCDetachMethod::ReachingTheTop);
 
 	}
 
@@ -683,15 +908,14 @@ void UGCBaseCharacterMovementComponent::PhysZiplining(float deltaTime, int32 Ite
 	FVector CableVector = CurrentZipline->GetCableLowestPoint() - CurrentZipline->GetCableHighestPoint();
 	FVector CharacterVector = HandLocation - CurrentZipline->GetCableHighestPoint();
 
-	FVector HandOnZiplineProjection = CurrentZipline->GetCableHighestPoint() + FVector::DotProduct(CharacterVector, CableVector) / FVector::DotProduct(CableVector, CableVector) * CableVector;
+	FVector Projection = CurrentZipline->GetCableHighestPoint() + FVector::DotProduct(CharacterVector, CableVector) / FVector::DotProduct(CableVector, CableVector) * CableVector;
 
-	
-	float CapsuleHalfHeight = GCPlayerCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+	float MSpeed = 10;
+	float CapsuleHalfHeight = 50;
 
-	FVector DeltaHand = (HandOnZiplineProjection - HandLocation) / CharacterToZiplineMoveSpeed;
+	FVector DeltaHand = (Projection - HandLocation) / MSpeed ;
 
-	//don't move until we raise the hand above the head
-	if (HandLocation.Z < GetActorLocation().Z )
+	if (HandLocation.Z < GetActorLocation().Z + CapsuleHalfHeight)
 	{
 		DeltaHand = FVector::ZeroVector;
 	}
@@ -703,6 +927,107 @@ void UGCBaseCharacterMovementComponent::PhysZiplining(float deltaTime, int32 Ite
 	if (Hit.bBlockingHit)
 	{
 		DetachFromZipline();
+	}
+}
+
+void UGCBaseCharacterMovementComponent::PhysWallRunning(float deltaTime, int32 Iterations)
+{
+
+	FHitResult Hit(1.0f);
+	FCollisionQueryParams Params;
+
+	Params.AddIgnoredActor(GetOwner());
+	float LineTraceLength = 100.0f;
+	
+	FVector HitLocation;
+	FVector LineTraceEnd = CurrentWallRunningSide==EWallRunningSide::Left ? -GetOwner()->GetActorRightVector(): GetOwner()->GetActorRightVector();
+	LineTraceEnd = LineTraceEnd*LineTraceLength + GetActorLocation();
+	
+	if (!GetWorld()->LineTraceSingleByChannel(Hit, GetActorLocation(), LineTraceEnd , ECC_WallRunnable, Params)
+		|| !AreWallRunningKeysPressed(CurrentWallRunningSide))
+	{
+		EndWallRunning();
+		return;
+	}
+	HitLocation = Hit.Location;
+
+	FVector WallDirection = GetWallDirection(Hit.ImpactNormal, CurrentWallRunningSide);
+	float ElapsedTime = GetWorld()->GetTimerManager().GetTimerElapsed(WallRunningTimer);
+	float DownCurveValue = WallRunningCurve->GetFloatValue(ElapsedTime);
+	FVector NewRotataion = WallDirection;
+
+	WallDirection.Z -= DownCurveValue;
+	WallDirection*= GetMaxSpeed() * deltaTime;
+
+	SafeMoveUpdatedComponent(WallDirection, NewRotataion.ToOrientationQuat(),true,Hit);
+
+	// try to slide down 
+	if (Hit.bBlockingHit)
+	{		
+		float PreviousDistanceToWall = (HitLocation - GetActorLocation()).Size();
+		
+		LineTraceEnd = CurrentWallRunningSide == EWallRunningSide::Left ? -GetOwner()->GetActorRightVector() : GetOwner()->GetActorRightVector();
+		LineTraceEnd = LineTraceEnd * LineTraceLength + GetActorLocation()+WallDirection;
+
+		if (GetWorld()->LineTraceSingleByChannel(Hit, GetActorLocation() + WallDirection, LineTraceEnd, ECC_WallRunnable, Params))
+		{
+			float CurrentDistanceToWall = (Hit.Location - (GetActorLocation() + WallDirection)).Size();
+
+			//if we are closer to the wall
+			if (CurrentDistanceToWall < PreviousDistanceToWall)
+			{
+				FVector NewLocation =  WallDirection + (PreviousDistanceToWall-CurrentDistanceToWall) * Hit.ImpactNormal;
+
+				SafeMoveUpdatedComponent(NewLocation, NewRotataion.ToOrientationQuat(), true, Hit);
+				{
+					//we tried but god is not on our side
+					if (Hit.bBlockingHit)
+					{
+						EndWallRunning(EGCDetachMethod::Fall);
+					}
+				}
+			}
+		}
+				
+	}
+}
+
+bool UGCBaseCharacterMovementComponent::AreWallRunningKeysPressed(const EWallRunningSide& CurrentSide) const
+{
+	float Delta = 0.1;
+
+	if (GCPlayerCharacter->GetInputForward() < Delta)
+	{
+		return false;
+	}
+
+	switch (CurrentSide)
+	{
+	case EWallRunningSide::Left:
+		{
+			return GCPlayerCharacter->GetInputRight() < -Delta;
+		}
+	case EWallRunningSide::Right:
+		{
+			return GCPlayerCharacter->GetInputRight() > Delta;
+		}
+	default:
+		break;
+	}
+	return false;
+}
+
+FVector UGCBaseCharacterMovementComponent::GetWallDirection(const FVector& WallNormal, const EWallRunningSide& CurrentSide) const
+{
+	if (CurrentSide == EWallRunningSide::Right)
+	{
+		return FVector::CrossProduct(FVector::UpVector, WallNormal);
+
+	}
+	else
+	{
+		return FVector::CrossProduct(WallNormal, FVector::UpVector);
+
 	}
 }
 

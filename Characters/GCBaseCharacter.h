@@ -51,7 +51,6 @@ public:
 	AGCBaseCharacter(const FObjectInitializer& ObjectInitializer);
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void BeginPlay() override;
-	
 
 	virtual void MoveForward(float Value) {};
 	virtual void MoveRight(float Value) {};
@@ -69,11 +68,13 @@ public:
 	virtual void StartSprint();
 	virtual void StopSprint();
 	virtual void ChangeCrawlState();
+	virtual void ToggleSlide();
 	
 	//@set true you want to forcibly initiate Mantling
 	virtual void Mantle(bool bForce=false);
 	virtual bool CanMantle();
-	virtual bool  CanJumpInternal_Implementation() const;
+	virtual bool CanJumpInternal_Implementation() const;
+	virtual void Jump() override;
 
 	virtual void ClimbLadderUp(float Value);
 	virtual void InteractWithLadder();
@@ -90,7 +91,7 @@ public:
 	
 
 	float GetUnchrouchedHalfHeight() const { return UnchrouchedHalfHeight; }
-	void SetUnchrouchedHalfHeight(float NewUnchrouchedHalfHeight) { UnchrouchedHalfHeight = NewUnchrouchedHalfHeight; }
+	void SetUnchrouchedHalfHeight(float val) { UnchrouchedHalfHeight = val; }
 
 	UGCBaseCharacterMovementComponent* GetCharacterBaseMovementComponent() const
 		{ return GCBaseCharacterMovementComponent; };
@@ -142,6 +143,9 @@ protected:
 	UFUNCTION(BlueprintNativeEvent, Category = "Character | Movement")
 	void OnSprintStop();
 	virtual void OnSprintStop_Implementation()PURE_VIRTUAL(AGCBaseCharacter::OnSprintStart_Implementation(), );
+	
+	UFUNCTION()
+	void OnCapsuleHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Character | IK Settings")
 	FName LeftFootSocketName;
@@ -165,7 +169,7 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Character | Mantling",
 		meta = (ClampMin = 0.0f, UIMin = 0.0f))
-		float LowMantleHeight = 125.0f;
+	float LowMantleHeight = 125.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Character | Ziplining")
 	FName GrabbingHandSocketName;

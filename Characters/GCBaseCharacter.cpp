@@ -36,6 +36,8 @@ void AGCBaseCharacter::BeginPlay()
 	Super::BeginPlay();
 	GCBaseCharacterMovementComponent->GCPlayerCharacter = StaticCast<AGCPlayerCharacter*>(this);
 	CurrentStamina = MaxStamina;
+	GetCapsuleComponent()->OnComponentHit.AddDynamic(this, &AGCPlayerCharacter::OnCapsuleHit);
+
 }
 
 
@@ -112,7 +114,7 @@ void AGCBaseCharacter::InteractWithLadder()
 {
 	if (GetCharacterBaseMovementComponent()->IsOnLadder())
 	{
-		GetCharacterBaseMovementComponent()->DetachFromLadder(EDetachFromLadderMethod::Jump);
+		GetCharacterBaseMovementComponent()->DetachFromLadder(EGCDetachMethod::Jump);
 	}
 	else
 	{
@@ -212,6 +214,20 @@ void AGCBaseCharacter::UpdateIKSettings(float DeltaSeconds)
 	}
 }
 
+void AGCBaseCharacter::Jump()
+{
+	if (GetCharacterBaseMovementComponent() != nullptr && GetCharacterBaseMovementComponent()->IsValidLowLevelFast())
+	{
+		if (GetCharacterBaseMovementComponent()->IsWallRunning() || GetCharacterBaseMovementComponent()->IsOnLadder())
+		{
+			GetCharacterBaseMovementComponent()->CustomJumpImplementation();
+			return;
+		}
+	}
+	Super::Jump();
+	
+}
+
 void AGCBaseCharacter::ClimbLadderUp(float Value)
 {
 	if (GetCharacterBaseMovementComponent()->IsOnLadder() && !FMath::IsNearlyZero(Value))
@@ -302,6 +318,21 @@ void AGCBaseCharacter::ChangeCrawlState()
 }
 
 
+void AGCBaseCharacter::ToggleSlide()
+{
+	if (GetCharacterBaseMovementComponent())
+	{
+		if (GetCharacterBaseMovementComponent()->IsSliding())
+		{
+			GetCharacterBaseMovementComponent()->SlidingTimerEnd();
+			return;
+		}
+
+		GetCharacterBaseMovementComponent()->StartSlide();
+	
+	}
+}
+
 void AGCBaseCharacter::Mantle(bool bForce )
 {
 	if (!CanMantle()&&!bForce &&(!GetCharacterBaseMovementComponent()->IsMantling()))
@@ -332,7 +363,7 @@ void AGCBaseCharacter::Mantle(bool bForce )
 		float MinRange = 0.0f;
 		float MaxRange = 0.0f;
 		
-		
+
 		MantlingSettings.MantlingCurve->GetTimeRange(MinRange, MaxRange);
 		MantlingParams.Duration = MaxRange - MinRange;
 
@@ -353,7 +384,6 @@ void AGCBaseCharacter::Mantle(bool bForce )
 
 		GetCharacterBaseMovementComponent()->bWantsToMantle = false;
 	}
-
 }
 
 bool AGCBaseCharacter::CanMantle()
@@ -378,6 +408,11 @@ void AGCBaseCharacter::StopSprint()
 
 
 
+
+void AGCBaseCharacter::OnCapsuleHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+	GetCharacterBaseMovementComponent()->CheckForWallRunning(OtherComp, Hit);
+}
 
 bool AGCBaseCharacter::CanSprint()
 {

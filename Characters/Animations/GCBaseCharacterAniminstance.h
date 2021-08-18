@@ -6,6 +6,7 @@
 #include "Animation/AnimInstance.h"
 #include "../GCBaseCharacter.h"
 #include "../GCPlayerCharacter.h"
+#include "../Components/MovementComponents/GCBaseCharacterMovementComponent.h"
 #include "GCBaseCharacterAniminstance.generated.h"
 
 /**
@@ -31,28 +32,37 @@ protected:
 	float LadderSpeedRatio = 0.0f;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadOnly, Category="Character animation")
-	bool bIsFalling=false;
+	bool bIsFalling = false;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadOnly, Category="Character animation")
-	bool bIsCrouching=false;
+	bool bIsCrouching = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
-	bool bIsSprinting;	
+	bool bIsSprinting = false;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
-	bool bIsCrawling;	
+	bool bIsCrawling = false;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
-	bool bIsOutOfStamina;	
+	bool bIsOutOfStamina = false;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
-	bool bIsSwimming;
+	bool bIsSwimming = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
-	bool bIsClimbing;	
+	bool bIsClimbing = false;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
-	bool bIsZiplining;
+	bool bIsZiplining = false;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
+	bool bIsWallRunning = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
+	bool bIsSliding = false;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
+	EWallRunningSide WallrunningSide= EWallRunningSide::None;
 
 	UPROPERTY(VisibleAnywhere, Transient, BlueprintReadOnly, Category = "Character animation| IK Settings")
 	FVector RightFootEffectorLocation = FVector::ZeroVector;
