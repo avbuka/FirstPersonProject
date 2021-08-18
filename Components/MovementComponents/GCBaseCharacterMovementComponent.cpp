@@ -198,7 +198,7 @@ void UGCBaseCharacterMovementComponent::Crawl()
 
 		bWantsToCrouch = true;
 		bIsCrawling = true;
-		GCPlayerCharacter->OnCrawlStart(0.0f, 0.0f);
+		GCPlayerCharacter->OnCrawlStartEnd(0.0f);
 		return;
 	}
 
@@ -250,7 +250,7 @@ void UGCBaseCharacterMovementComponent::Crawl()
 	HalfHeightAdjust *= ComponentScale;
 
 	AdjustProxyCapsuleSize();
-	GCPlayerCharacter->OnCrawlStart(HalfHeightAdjust, ScaledHalfHeightAdjust);
+	GCPlayerCharacter->OnCrawlStartEnd(ScaledHalfHeightAdjust);
 
 
 }
@@ -267,7 +267,7 @@ void UGCBaseCharacterMovementComponent::UnCrawl()
 	if (CharacterOwner->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() == CrouchedHalfHeight)
 	{
 		bIsCrawling = false;
-		GCPlayerCharacter->OnCrawlEnd(0.f, 0.f);
+		GCPlayerCharacter->OnCrawlStartEnd(0.f);
 		return;
 	}
 
@@ -386,7 +386,7 @@ void UGCBaseCharacterMovementComponent::UnCrawl()
 	CharacterOwner->GetCapsuleComponent()->SetCapsuleSize(CharacterOwner->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), CrouchedHalfHeight, true);
 
 	AdjustProxyCapsuleSize();
-	GCPlayerCharacter->OnCrawlEnd(HalfHeightAdjust, ScaledHalfHeightAdjust);	
+	GCPlayerCharacter->OnCrawlStartEnd(-ScaledHalfHeightAdjust);	
 }
 
 bool UGCBaseCharacterMovementComponent::CrawlOverlapsWithSomething()

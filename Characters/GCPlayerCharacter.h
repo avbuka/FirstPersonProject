@@ -35,9 +35,7 @@ public:
 
 	
 	//recalculate base eye height and move the mesh up
-	virtual void OnCrawlStart(float HalfHeightAdjust, float ScaledHalfHeightAdjust);
-	///recalculate base eye height and move the mesh down
-	virtual void OnCrawlEnd(float HeightAdjust, float ScaledHeightAdjust);
+	virtual void OnCrawlStartEnd(float ScaledHalfHeightAdjust);	
 	virtual void RecalculateBaseEyeHeight() override;
 	
 	virtual bool CanJumpInternal_Implementation() const override;
