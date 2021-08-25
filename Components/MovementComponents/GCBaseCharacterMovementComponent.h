@@ -79,7 +79,6 @@ public:
 	bool CanEverCrawl()	  const	{ return bCanCrawl;	      }
 	bool IsZiplining()	  const { return bIsZiplining;	  }
 	bool IsWallRunning()  const { return bIsWallRunning;  }
-	bool IsSliding()	  const { return bIsSliding;	  }
 	bool IsMantling()     const;
 	bool IsOnLadder()	  const;
 
@@ -101,10 +100,6 @@ public:
 
 	void StartSprint();
 	void StopSprint();
-
-	void StartSlide();
-	void SlidingTimerEnd();
-	void EndSlide();
 
 	void CheckForWallRunning(UPrimitiveComponent* Comp,const FHitResult& Hit);
 	void StartWallRunning(const FVector& WallNormal);
@@ -140,10 +135,6 @@ public:
 	/* Keep trying to mantle*/
 	UPROPERTY(Category = "Character Movement | Mantling", VisibleInstanceOnly, BlueprintReadOnly)
 	bool bWantsToMantle=false;
-	
-	/* Keep trying to end sliding*/
-	UPROPERTY(Category = "Character Movement | Sliding", VisibleInstanceOnly, BlueprintReadOnly)
-	bool bWantsToEndSlide=false;
 
 	/**
 	 * If true, crawling should keep the base of the capsule in place by lowering the center of the shrunken capsule. If false, the base of the capsule moves up and the center stays in place.
@@ -159,7 +150,7 @@ public:
 
 protected:
 	
-	bool CanStandUp();
+	
 	virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode);
 	virtual void PhysCustom(float deltaTime, int32 Iterations) override;
 
@@ -195,7 +186,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement| Crawl", 
 				meta = (ClampMin = 0.0f, UIMin = 0.0f))
 	float CrawlSpeed = 100.0f;
-
 	//can the character crawl?
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Character movement| Crawl")
 	bool bCanCrawl = true;
@@ -231,17 +221,13 @@ protected:
 				meta = (ClampMin = 0.0f, UIMin = 0.0f))
 	float ZipliningSpeed = 800.0f;
 	
+	// How fast we want to attach the arm to the zipline
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Ziplining", meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	float CharacterToZiplineMoveSpeed = 10.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Wallrunning", 
 				meta = (ClampMin = 0.0f, UIMin = 0.0f))
 	float WallRunningMaxSpeed = 500.0f;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Sliding", 
-				meta = (ClampMin = 0.0f, UIMin = 0.0f))
-	float SlidingSpeed = 500.0f;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Sliding", 
-				meta = (ClampMin = 0.0f, UIMin = 0.0f))
-	float SlidingCapsuleHalfHeight = 40.0f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character movement | Wallrunning", 
 				meta = (ClampMin = 0.0f, UIMin = 0.0f))
@@ -260,7 +246,6 @@ private:
 	bool bIsCrawling	 = false;
 	bool bIsZiplining	 = false;
 	bool bIsWallRunning	 = false;
-	bool bIsSliding		 = false;
 	
 	float TargetMantlingTime = 1.0f;
 

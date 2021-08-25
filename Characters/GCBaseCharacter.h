@@ -68,7 +68,6 @@ public:
 	virtual void StartSprint();
 	virtual void StopSprint();
 	virtual void ChangeCrawlState();
-	virtual void ToggleSlide();
 	
 	//@set true you want to forcibly initiate Mantling
 	virtual void Mantle(bool bForce=false);
@@ -91,8 +90,8 @@ public:
 	
 
 	float GetUnchrouchedHalfHeight() const { return UnchrouchedHalfHeight; }
-	void SetUnchrouchedHalfHeight(float val) { UnchrouchedHalfHeight = val; }
-
+	void  SetUnchrouchedHalfHeight(float NewUnchrouchedHalfHeight) { UnchrouchedHalfHeight = NewUnchrouchedHalfHeight; }
+	 
 	UGCBaseCharacterMovementComponent* GetCharacterBaseMovementComponent() const
 		{ return GCBaseCharacterMovementComponent; };
 

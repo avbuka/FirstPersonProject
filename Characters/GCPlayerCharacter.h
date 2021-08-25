@@ -30,12 +30,13 @@ public:
 
 	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;	
-	virtual void OnSlideStartEnd(float ScaledHalfHeightAdjust) ;	
 
 
 	
 	//recalculate base eye height and move the mesh up
-	virtual void OnCrawlStartEnd(float ScaledHalfHeightAdjust);	
+	virtual void OnCrawlStart(float HalfHeightAdjust, float ScaledHalfHeightAdjust);
+	///recalculate base eye height and move the mesh down
+	virtual void OnCrawlEnd(float HeightAdjust, float ScaledHeightAdjust);
 	virtual void RecalculateBaseEyeHeight() override;
 	
 	virtual bool CanJumpInternal_Implementation() const override;
@@ -49,11 +50,11 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	float GetInputRight() { return InputRight; }
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character | Camera")
-		class UCameraComponent* CameraComponent;
 
 	
 protected:
+	UPROPERTY(VisibleAnywhere,BlueprintReadOnly,Category="Character | Camera")
+	class UCameraComponent* CameraComponent;
 	
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly,Category="Character | Camera")
 	class USpringArmComponent* SpringArmComponent;

@@ -31,7 +31,6 @@ private:
 	void LookUpAtRate(float Value);
 	void Jump();
 	void Mantle();
-	void Slide();
 
 	void SwimForward(float Value);
 	void SwimRight(float Value);

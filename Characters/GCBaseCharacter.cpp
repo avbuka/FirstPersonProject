@@ -225,7 +225,7 @@ void AGCBaseCharacter::Jump()
 		}
 	}
 	Super::Jump();
-	
+
 }
 
 void AGCBaseCharacter::ClimbLadderUp(float Value)
@@ -317,21 +317,6 @@ void AGCBaseCharacter::ChangeCrawlState()
 	return;	
 }
 
-
-void AGCBaseCharacter::ToggleSlide()
-{
-	if (GetCharacterBaseMovementComponent())
-	{
-		if (GetCharacterBaseMovementComponent()->IsSliding())
-		{
-			GetCharacterBaseMovementComponent()->SlidingTimerEnd();
-			return;
-		}
-
-		GetCharacterBaseMovementComponent()->StartSlide();
-	
-	}
-}
 
 void AGCBaseCharacter::Mantle(bool bForce )
 {

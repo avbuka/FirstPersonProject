@@ -44,7 +44,7 @@ void AGCPlayerCharacter::MoveForward(float Value)
 {
 	InputForward = Value;
 
-	if (GetCharacterMovement()->IsMovingOnGround()|| GetCharacterBaseMovementComponent()->IsWallRunning() || GetCharacterMovement()->IsFalling()
+	if (GetCharacterMovement()->IsMovingOnGround() || GetCharacterBaseMovementComponent()->IsWallRunning() || GetCharacterMovement()->IsFalling()
 		&& (!FMath::IsNearlyZero(Value, 1e-6f)))
 	{
 		FRotator YawRotator(0.0f, GetControlRotation().Yaw, 0.0f);
@@ -56,7 +56,7 @@ void AGCPlayerCharacter::MoveForward(float Value)
 
 void AGCPlayerCharacter::MoveRight(float Value)
 {
-	if (GetCharacterMovement()->IsMovingOnGround() ||GetCharacterBaseMovementComponent()->IsWallRunning() ||GetCharacterMovement()->IsFalling()
+	if (GetCharacterMovement()->IsMovingOnGround() || GetCharacterBaseMovementComponent()->IsWallRunning() || GetCharacterMovement()->IsFalling()
 		&& (!FMath::IsNearlyZero(Value, 1e-6f)))
 	{
 		InputRight = Value;
@@ -150,23 +150,6 @@ void AGCPlayerCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHei
 	Super::OnEndCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
 	SpringArmComponent->TargetOffset -= FVector(0.0f, 0.0f, HalfHeightAdjust);
 }
-
-void AGCPlayerCharacter::OnSlideStartEnd(float ScaledHalfHeightAdjust)
-{
-	const ACharacter* DefaultChar = GetDefault<ACharacter>(GetClass());
-	if (GetMesh() && DefaultChar->GetMesh())
-	{
-		FVector& MeshRelativeLocation = GetMesh()->GetRelativeLocation_DirectMutable();
-		MeshRelativeLocation.Z += ScaledHalfHeightAdjust;
-	}
-	else
-	{
-		//changing mesh translation
-		BaseTranslationOffset.Z = DefaultChar->GetBaseTranslationOffset().Z + ScaledHalfHeightAdjust;
-	}
-	SpringArmComponent->TargetOffset += FVector(0.0f, 0.0f, ScaledHalfHeightAdjust);
-}
-
 void AGCPlayerCharacter::RecalculateBaseEyeHeight()
 {
 	if (!GetCharacterBaseMovementComponent()->IsCrawling() || bIsCrouched)
@@ -178,23 +161,44 @@ void AGCPlayerCharacter::RecalculateBaseEyeHeight()
 		BaseEyeHeight = CrawledEyeHeight;
 	}
 }
-void AGCPlayerCharacter::OnCrawlStartEnd(float ScaledHeightAdjust)
+void AGCPlayerCharacter::OnCrawlStart(float HeightAdjust, float ScaledHeightAdjust)
 {
-	
 	RecalculateBaseEyeHeight();
 
 	const ACharacter* DefaultChar = GetDefault<ACharacter>(GetClass());
 	if (GetMesh() && DefaultChar->GetMesh())
 	{
 		FVector& MeshRelativeLocation = GetMesh()->GetRelativeLocation_DirectMutable();
-		MeshRelativeLocation.Z += ScaledHeightAdjust;
+		//	MeshRelativeLocation.Z = DefaultChar->GetMesh()->GetRelativeLocation().Z + HeightAdjust;
+		MeshRelativeLocation.Z += HeightAdjust;
+		BaseTranslationOffset.Z = MeshRelativeLocation.Z;
 	}
 	else
 	{
 		//changing mesh translation
-		BaseTranslationOffset.Z = DefaultChar->GetBaseTranslationOffset().Z + ScaledHeightAdjust;
+		BaseTranslationOffset.Z = DefaultChar->GetBaseTranslationOffset().Z + HeightAdjust;
 	}
 	SpringArmComponent->TargetOffset += FVector(0.0f, 0.0f, ScaledHeightAdjust);
+	//K2_OnCrawlStart(HeightAdjust, ScaledHeightAdjust);
+}
+void AGCPlayerCharacter::OnCrawlEnd(float HeightAdjust, float ScaledHeightAdjust)
+{
+	RecalculateBaseEyeHeight();
+
+	const ACharacter* DefaultChar = GetDefault<ACharacter>(GetClass());
+	if (GetMesh() && DefaultChar->GetMesh())
+	{
+		FVector& MeshRelativeLocation = GetMesh()->GetRelativeLocation_DirectMutable();
+		MeshRelativeLocation.Z -= HeightAdjust;
+		BaseTranslationOffset.Z = MeshRelativeLocation.Z;
+	}
+	else
+	{
+		//changing mesh translation
+		BaseTranslationOffset.Z += HeightAdjust;
+	}
+	SpringArmComponent->TargetOffset -=FVector(0.0f, 0.0f, ScaledHeightAdjust);
+	//	K2_OnStartCrouch(HeightAdjust, ScaledHeightAdjust);
 }
 
 

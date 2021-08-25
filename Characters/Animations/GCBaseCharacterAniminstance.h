@@ -32,10 +32,10 @@ protected:
 	float LadderSpeedRatio = 0.0f;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadOnly, Category="Character animation")
-	bool bIsFalling = false;
+	bool bIsFalling=false;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadOnly, Category="Character animation")
-	bool bIsCrouching = false;
+	bool bIsCrouching=false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
 	bool bIsSprinting = false;
@@ -48,19 +48,16 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
 	bool bIsSwimming = false;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
 	bool bIsClimbing = false;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
 	bool bIsZiplining = false;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
 	bool bIsWallRunning = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
-	bool bIsSliding = false;
-	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character animation")
 	EWallRunningSide WallrunningSide= EWallRunningSide::None;
 

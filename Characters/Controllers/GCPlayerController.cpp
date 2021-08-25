@@ -31,7 +31,6 @@ void AGCPlayerController::SetupInputComponent()
 	InputComponent->BindAction("Mantle", IE_Pressed, this, &AGCPlayerController::Mantle);
 	InputComponent->BindAction("InteractWithObject", IE_Pressed, this, &AGCPlayerController::InteractWithIActor);
 	InputComponent->BindAction("Jump", IE_Pressed, this, &AGCPlayerController::Jump);
-	InputComponent->BindAction("Slide", IE_Pressed, this, &AGCPlayerController::Slide);
 	InputComponent->BindAction("Crouch", IE_Pressed, this, &AGCPlayerController::ChangeCrouchState);
 	InputComponent->BindAction("Crawl", IE_Pressed, this, &AGCPlayerController::ChangeCrawlState);
 	InputComponent->BindAction("Sprint", IE_Pressed, this, &AGCPlayerController::StartSprint);
@@ -46,7 +45,7 @@ void AGCPlayerController::MoveForward(float Value)
 		if (!ChachedBaseCharacter->GetMovementComponent()->IsSwimming())
 		{
 			ChachedBaseCharacter->MoveForward(Value);
-			
+
 		}
 	}
 }
@@ -110,6 +109,11 @@ void AGCPlayerController::Jump()
 			ChangeCrawlState();
 			return;
 		}
+		if (ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsZiplining())
+		{
+			ChachedBaseCharacter->GetCharacterBaseMovementComponent()->DetachFromZipline();
+			return;
+		}
 
 		ChachedBaseCharacter->Jump();
 	}
@@ -124,17 +128,6 @@ void AGCPlayerController::Mantle()
 		{
 			ChachedBaseCharacter->Mantle();
 		}
-	}
-}
-
-void AGCPlayerController::Slide()
-{
-	if (ChachedBaseCharacter.IsValid())
-	{		
-		if (ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsSprinting())
-		{
-			ChachedBaseCharacter->ToggleSlide();
-		}		
 	}
 }
 
@@ -175,8 +168,7 @@ void AGCPlayerController::ChangeCrouchState()
 {
 	if (ChachedBaseCharacter.IsValid())
 	{
-		if (!ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsCrawling()
-			&& !ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsSliding())
+		if (!ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsCrawling())
 		{
 			ChachedBaseCharacter->ChangeCrouchState();
 		}
