@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Characters/GCPlayerCharacter.h"
+#include "GCPlayerCharacter.h"
 #include "FPPlayerCharacter.generated.h"
 
 /**

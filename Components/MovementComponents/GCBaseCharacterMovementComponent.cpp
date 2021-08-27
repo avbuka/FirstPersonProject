@@ -668,13 +668,12 @@ void UGCBaseCharacterMovementComponent::EndMantle()
 
 void UGCBaseCharacterMovementComponent::AttachToLadder(const class ALadder* Ladder)
 {
-	//TODO Fix different angles! 
-
 	CurrentLadder = Ladder;
-	FRotator TargetOrientationRotation = CurrentLadder->GetActorRotation();
+	FRotator TargetOrientationRotation = UKismetMathLibrary::MakeRotationFromAxes(-CurrentLadder->GetActorForwardVector(),
+																				  -CurrentLadder->GetActorRightVector(),
+																				   CurrentLadder->GetActorUpVector()
+																				  );
 	FVector NewCharacterLocation = FVector::ZeroVector;
-
-	//TargetOrientationRotation.Yaw = (-CurrentLadder->GetActorForwardVector()).ToOrientationRotator().Yaw;
 	
 	GetActorToCurrentLadderProjection(GetActorLocation());
 
