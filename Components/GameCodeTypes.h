@@ -7,4 +7,5 @@ const FName PawnCollisionProfile = FName("Pawn");
 const FName OverlapDynamicCollisionProfile = FName("OverlapAllDynamic");
 const FName PawnCollisionProfileInteractionVolume = FName("PawnInteractionVolume");
 const FName DebugCategoryLedgeDetection = FName("LedgeDetection");
+const FName DebugCategorySliding = FName("Sliding");
 

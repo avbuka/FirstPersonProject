@@ -68,6 +68,7 @@ public:
 	virtual void StartSprint();
 	virtual void StopSprint();
 	virtual void ChangeCrawlState();
+	virtual void ToggleSlide();
 	
 	//@set true you want to forcibly initiate Mantling
 	virtual void Mantle(bool bForce=false);
@@ -90,13 +91,11 @@ public:
 	
 
 	float GetUnchrouchedHalfHeight() const { return UnchrouchedHalfHeight; }
-	void  SetUnchrouchedHalfHeight(float NewUnchrouchedHalfHeight) { UnchrouchedHalfHeight = NewUnchrouchedHalfHeight; }
-	 
+	void SetUnchrouchedHalfHeight(float NewUnchrouchedHalfHeight) { UnchrouchedHalfHeight = NewUnchrouchedHalfHeight; }
+
 	UGCBaseCharacterMovementComponent* GetCharacterBaseMovementComponent() const
 		{ return GCBaseCharacterMovementComponent; };
 
-	UFUNCTION(BlueprintImplementableEvent)
-	void ToggleSlowmo();
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	float GetIKLeftFootOffset() { return IKLeftFootOffset; }
 
@@ -173,9 +172,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Character | Ziplining")
 	FName GrabbingHandSocketName;
 
-	float UnchrouchedHalfHeight = 0.0f;
+	UPROPERTY(EditDefaultsOnly, Category = "Character | Sliding")
+	UAnimMontage* SlidingMontage;
 
-	
 	virtual bool CanSprint() ;
 
 
@@ -200,6 +199,8 @@ private:
 	float IKScale = 0.0;
 
 	float CurrentStamina = 0.0f;
+	float UnchrouchedHalfHeight = 0.0f;
+
 
 public:
 

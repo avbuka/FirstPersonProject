@@ -80,7 +80,7 @@ bool UGCLedgeDetectorComponent::DetectLedge(OUT FLedgeDescription& LedgeDescript
 	FHitResult DownwardCheckHitResult;
 	FCollisionShape DownwardSphereShape = FCollisionShape::MakeSphere(DownwardCheckSphereRadius);
 	FVector DownwardCheckStartLocation = ForwardCheckHitResult.ImpactPoint - ForwardCheckHitResult.ImpactNormal* EdgeOffset;
-	DownwardCheckStartLocation.Z = CharacterBottom.Z + MaxLedgeHeight + DownwardCheckSphereRadius;
+	DownwardCheckStartLocation.Z = CharacterBottom.Z + MaxLedgeHeight + DownwardCheckSphereRadius+MinLedgeHeight;
 
 	FVector DownwardCheckEndLocation(DownwardCheckStartLocation.X, DownwardCheckStartLocation.Y, CharacterBottom.Z);
 	
@@ -89,6 +89,10 @@ bool UGCLedgeDetectorComponent::DetectLedge(OUT FLedgeDescription& LedgeDescript
 		return false;
 	}
 	
+	if (DownwardCheckHitResult.ImpactPoint.Z- CharacterBottom.Z < MinLedgeHeight)
+	{
+		return false;
+	}
 
 	//3. overlap check
 
@@ -103,6 +107,18 @@ bool UGCLedgeDetectorComponent::DetectLedge(OUT FLedgeDescription& LedgeDescript
 	
 	LedgeDescription.TranformWS = FTransform((ForwardCheckHitResult.ImpactNormal * FVector(-1.0, -1.0, 0)).ToOrientationRotator(), OverlapLocation-EdgeOffset*FVector::UpVector, FVector::OneVector);
 
+	//4. Sweep check 
+	
+	// Starting position slightly behind to account for very close actor location to the ledge
+	FQuat CapsuleRotation = (OverlapLocation - ForwardStartLocation).ToOrientationQuat();
+	FVector AnimationStartPosition = ForwardCheckHitResult.ImpactNormal * OverlapCapsuleRadius * 2.0f + ForwardCheckHitResult.ImpactPoint;
+	
+	if (GCTraceUtils::SweepCapsuleSingleByChannel(GetWorld(), ForwardCheckHitResult, AnimationStartPosition, OverlapLocation, OverlapCapsuleRadius, OverlapCapsuleRadius, CapsuleRotation, ECC_Visibility, QueryParams, FCollisionResponseParams(), bIsDebugEnabled, DebugDrawTime))
+	{
+		return false;
+	}
+
+	
 	return true;
 }
 

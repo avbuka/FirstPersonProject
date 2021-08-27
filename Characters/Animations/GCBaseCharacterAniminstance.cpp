@@ -35,6 +35,7 @@ void UGCBaseCharacterAniminstance::NativeUpdateAnimation(float DeltaSeconds)
 	bIsClimbing		= CharacterMovementC->IsOnLadder();
 	bIsZiplining	= CharacterMovementC->IsZiplining();
 	bIsWallRunning  = CharacterMovementC->IsWallRunning();
+	bIsSliding		= CharacterMovementC->IsSliding();
 
 	WallrunningSide = CharacterMovementC->GetWallRunningSide();
 	CharacterSpeed  = CharacterMovementC->Velocity.Size();
@@ -44,6 +45,7 @@ void UGCBaseCharacterAniminstance::NativeUpdateAnimation(float DeltaSeconds)
 		LadderSpeedRatio = CharacterMovementC->GetLadderSpeedRatio();
 	}
 
+	
 	CharacterSpeed  = CharacterMovementC->Velocity.Size();
 	IKHipOffset		= FVector(0.0f, 0.0f, -CachedBasedCharacter->GetIKHipOffset());
 

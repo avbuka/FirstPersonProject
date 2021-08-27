@@ -31,6 +31,7 @@ void AGCPlayerController::SetupInputComponent()
 	InputComponent->BindAction("Mantle", IE_Pressed, this, &AGCPlayerController::Mantle);
 	InputComponent->BindAction("InteractWithObject", IE_Pressed, this, &AGCPlayerController::InteractWithIActor);
 	InputComponent->BindAction("Jump", IE_Pressed, this, &AGCPlayerController::Jump);
+	InputComponent->BindAction("Slide", IE_Pressed, this, &AGCPlayerController::Slide);
 	InputComponent->BindAction("Crouch", IE_Pressed, this, &AGCPlayerController::ChangeCrouchState);
 	InputComponent->BindAction("Crawl", IE_Pressed, this, &AGCPlayerController::ChangeCrawlState);
 	InputComponent->BindAction("Sprint", IE_Pressed, this, &AGCPlayerController::StartSprint);
@@ -109,9 +110,8 @@ void AGCPlayerController::Jump()
 			ChangeCrawlState();
 			return;
 		}
-		if (ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsZiplining())
+		if (ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsSliding())
 		{
-			ChachedBaseCharacter->GetCharacterBaseMovementComponent()->DetachFromZipline();
 			return;
 		}
 
@@ -124,10 +124,22 @@ void AGCPlayerController::Mantle()
 	if (ChachedBaseCharacter.IsValid())
 	{
 		if (!ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsMantling() &&
-			!ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsWallRunning())
+			!ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsWallRunning() &&
+			!ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsSliding())
 		{
 			ChachedBaseCharacter->Mantle();
 		}
+	}
+}
+
+void AGCPlayerController::Slide()
+{
+	if (ChachedBaseCharacter.IsValid())
+	{		
+		if (ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsSprinting())
+		{
+			ChachedBaseCharacter->ToggleSlide();
+		}		
 	}
 }
 
@@ -168,7 +180,8 @@ void AGCPlayerController::ChangeCrouchState()
 {
 	if (ChachedBaseCharacter.IsValid())
 	{
-		if (!ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsCrawling())
+		if (!ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsCrawling()
+			&& !ChachedBaseCharacter->GetCharacterBaseMovementComponent()->IsSliding())
 		{
 			ChachedBaseCharacter->ChangeCrouchState();
 		}

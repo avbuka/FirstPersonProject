@@ -34,7 +34,7 @@ AZipline::AZipline()
 
 bool AZipline::CanAttachToZipline(const FVector& ActorLocation)
 {
-	// Offset to ensure that we grab something higher 
+	// Offset to ensure that we grab something higher
 	float Offset = 40.0f;	
 	return LowestPoleLocation.Z + Offset < ActorLocation.Z;	
 }
