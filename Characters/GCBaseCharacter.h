@@ -101,7 +101,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	float GetIKRightFootOffset() { return IKRightFootOffset; }
-
+	
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	float GetIKHipOffset() { return IKHipOffset; }
 	
@@ -114,6 +114,10 @@ public:
 
 
 	const FName& GetGrabbingHandSocketName() const { return GrabbingHandSocketName; }
+
+	FVector GetLeftArmIK()  const { return LeftArmIK_WS;  }
+	FVector GetRightArmIK() const { return RightArmIK_WS; }
+
 protected:
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category="Character | Movement | Stamina", 
 		meta = (ClampMin = 0.0f, UIMin = 0.0f))
@@ -182,7 +186,10 @@ protected:
 
 	TArray<AInteractiveActor*> InteractiveActors;
 private:
-
+	FVector LeftArmIK_WS = FVector::ZeroVector;
+	FVector RightArmIK_WS = FVector::ZeroVector;
+	
+	void GetIKClimbingArms(FVector& _OutLeftPoint, FVector& _OutRightPoint);
 	const FMantlingSettings& GetMantlingSettings(float LedgeHeight) const;
 	float GetIKFootOffset(const FName& SocketName);
 	void UpdateIKSettings(float DeltaSeconds);
@@ -191,17 +198,18 @@ private:
 	bool bIsSprintRequested = false;
 	
 	float IKRightFootOffset = 0.0f;
-	float IKLeftFootOffset = 0.0f;
-	float IKHipOffset = 0.0f;
-	float HipOffset = 0.0f;
+	float IKLeftFootOffset  = 0.0f;
+	float IKHipOffset		= 0.0f;
+	float HipOffset			= 0.0f;
 
-	float IKTraceDistance = 40.0;
-	float IKScale = 0.0;
+	float IKTraceDistance   = 40.0;
+	float IKScale			= 0.0;
 
-	float CurrentStamina = 0.0f;
+	float CurrentStamina	= 0.0f;
 	float UnchrouchedHalfHeight = 0.0f;
 
+	float PreviousI = 0.0f;
 
-public:
-
+	bool bSkipLadderStep = false;
+	
 };

@@ -69,6 +69,12 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Transient, BlueprintReadOnly, Category = "Character animation| IK Settings")
 	FVector LeftFootEffectorLocation = FVector::ZeroVector;
+	
+	UPROPERTY(VisibleAnywhere, Transient, BlueprintReadOnly, Category = "Character animation| IK Settings")
+	FVector RightArmEffectorLocation = FVector::ZeroVector;
+
+	UPROPERTY(VisibleAnywhere, Transient, BlueprintReadOnly, Category = "Character animation| IK Settings")
+	FVector LeftArmEffectorLocation = FVector::ZeroVector;
 
 	UPROPERTY(VisibleAnywhere, Transient, BlueprintReadOnly, Category = "Character animation| IK Settings")
 	FVector IKHipOffset = FVector::ZeroVector;

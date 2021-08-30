@@ -36,13 +36,15 @@ void ALadder::BeginPlay()
 	Super::BeginPlay();
 	TopInteractionVolume->OnComponentBeginOverlap.AddDynamic(this, &ALadder::OnInteractionVolumeOverlapBegin);
 	TopInteractionVolume->OnComponentEndOverlap.AddDynamic(this, &ALadder::OnInteractionVolumeOverlapEnd);
+	StepsCount = (FMath::FloorToInt((GetLadderHeight() - GetBottomStepOffset()) / GetStepsInterval()));
+
 }
 
 FVector ALadder::GetAttachFromTopAnimMontageInitialOffset() const
 {
 	FRotator OrientationRotation = GetActorForwardVector().ToOrientationRotator();
 	FVector Offset = OrientationRotation.RotateVector(AttachFromTopAnimMontageInitialOffset);
-	FVector LadderTop = GetActorLocation() + LadderHeight*GetActorUpVector();
+	FVector LadderTop = GetActorLocation() + GetLadderHeight()*GetActorUpVector();
 	return LadderTop + Offset;
 }
 
@@ -53,8 +55,8 @@ void ALadder::SetObjectType()
 
 void ALadder::OnConstruction(const FTransform& Transform)
 {	
-	LeftRailMeshComponent->SetRelativeLocation(FVector(0.0f, -LadderWidth * 0.5, GetLadderHeight()*0.5));
-	RightRailMeshComponent->SetRelativeLocation(FVector(0.0f, LadderWidth * 0.5, GetLadderHeight() * 0.5));
+	LeftRailMeshComponent->SetRelativeLocation(FVector(0.0f, -GetLadderWidth() * 0.5, GetLadderHeight()*0.5));
+	RightRailMeshComponent->SetRelativeLocation(FVector(0.0f, GetLadderWidth() * 0.5, GetLadderHeight() * 0.5));
 
 	if (LeftRailMeshComponent->GetStaticMesh())
 	{
@@ -77,27 +79,27 @@ void ALadder::OnConstruction(const FTransform& Transform)
 	if (StepsMeshComponent->GetStaticMesh())
 	{
 		float MeshWidth = StepsMeshComponent->GetStaticMesh()->GetBoundingBox().GetSize().Y;
-		StepsMeshComponent->SetRelativeScale3D(FVector(1.0f, LadderWidth / MeshWidth, 1.0f));
+		StepsMeshComponent->SetRelativeScale3D(FVector(1.0f, GetLadderWidth() / MeshWidth, 1.0f));
 	}
 	StepsMeshComponent->ClearInstances();
 
-	uint16 StepsCount = FMath::FloorToInt((GetLadderHeight() - BottomStepOffset) / StepsInterval);
+	StepsCount=(FMath::FloorToInt((GetLadderHeight() - GetBottomStepOffset()) / GetStepsInterval()));
 
 	for (int i = 0; i < StepsCount; i++)
 	{
-		FTransform InstanceTransform(FVector(1.0f, 1.0f, BottomStepOffset + i * StepsInterval));
+		FTransform InstanceTransform(FVector(1.0f, 1.0f, GetBottomStepOffset() + i * GetStepsInterval()));
 		StepsMeshComponent->AddInstance(InstanceTransform);
 	}
 	
 	//setting interactive volume size
 	float VolumeDepth = GetLadderInteractionBox()->GetUnscaledBoxExtent().X;
 
-	GetLadderInteractionBox()->SetBoxExtent(FVector(VolumeDepth, LadderWidth * 0.5, GetLadderHeight() * 0.5));
+	GetLadderInteractionBox()->SetBoxExtent(FVector(VolumeDepth, GetLadderWidth() * 0.5, GetLadderHeight() * 0.5));
 	GetLadderInteractionBox()->SetRelativeLocation(FVector(VolumeDepth, 0.0f, GetLadderHeight() * 0.5));
 
 	FVector TopInteractionVolumeExtent = TopInteractionVolume->GetUnscaledBoxExtent();
-	TopInteractionVolume->SetBoxExtent(FVector(TopInteractionVolumeExtent.X, LadderWidth*0.5, TopInteractionVolumeExtent.Z));
-	TopInteractionVolume->SetRelativeLocation(FVector(-TopInteractionVolumeExtent.X, 0.0f, LadderHeight));
+	TopInteractionVolume->SetBoxExtent(FVector(TopInteractionVolumeExtent.X, GetLadderWidth()*0.5, TopInteractionVolumeExtent.Z));
+	TopInteractionVolume->SetRelativeLocation(FVector(-TopInteractionVolumeExtent.X, 0.0f, GetLadderHeight()));
 }
 
 void ALadder::OnInteractionVolumeOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)

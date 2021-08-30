@@ -49,7 +49,11 @@ void UGCBaseCharacterAniminstance::NativeUpdateAnimation(float DeltaSeconds)
 	CharacterSpeed  = CharacterMovementC->Velocity.Size();
 	IKHipOffset		= FVector(0.0f, 0.0f, -CachedBasedCharacter->GetIKHipOffset());
 
-	LeftFootEffectorLocation = FVector(CachedBasedCharacter->GetIKLeftFootOffset()  + IKHipOffset.Z,0,0);
-	RightFootEffectorLocation= FVector(CachedBasedCharacter->GetIKRightFootOffset() + IKHipOffset.Z,0,0);
+	LeftFootEffectorLocation  = FVector(CachedBasedCharacter->GetIKLeftFootOffset()  + IKHipOffset.Z,0,0);
+	RightFootEffectorLocation = FVector(CachedBasedCharacter->GetIKRightFootOffset() + IKHipOffset.Z,0,0);
+	
+	//LeftArmEffectorLocation = FVector(0  , CachedBasedCharacter->GetIKLeftArmOffset(),0);
+	LeftArmEffectorLocation = CachedBasedCharacter->GetLeftArmIK();
+	RightArmEffectorLocation = CachedBasedCharacter->GetRightArmIK();
 	
 }

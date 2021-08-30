@@ -19,11 +19,8 @@ class XYZPROJECT_API ALadder : public AInteractiveActor
 	
 public:
 	ALadder();
-	float GetLadderHeight() const { return LadderHeight; }
-	void SetLadderHeight(float val) { LadderHeight = val; }
-	
-	virtual void BeginPlay() override;
 
+	virtual void BeginPlay() override;
 
 	bool GetIsCharacterOnTop() const { return bIsCharacterOnTop; }
 	void SetIsCharacterOnTop(bool val) { bIsCharacterOnTop = val; }
@@ -34,6 +31,20 @@ public:
 
 	FVector GetAttachFromTopAnimMontageInitialOffset() const;
 	void SetAttachFromTopAnimMontageInitialOffset(FVector val) { AttachFromTopAnimMontageInitialOffset = val; }
+	float GetLadderWidth() const { return LadderWidth; }
+	void SetLadderWidth(float NewLadderWidth) { LadderWidth = NewLadderWidth; }
+
+	float GetLadderHeight() const { return LadderHeight; }
+	void SetLadderHeight(float NewLadderHeight) { LadderHeight = NewLadderHeight; }
+
+	float GetStepsInterval() const { return StepsInterval; }
+	void SetStepsInterval(float NewStepsInterval) { StepsInterval = NewStepsInterval; }
+
+	float GetBottomStepOffset() const { return BottomStepOffset; }
+	void SetBottomStepOffset(float NewBottomStepOffset) { BottomStepOffset = NewBottomStepOffset; }
+
+	uint16 GetStepsCount() const { return StepsCount; }
+
 protected:
 
 	virtual void SetObjectType() override;
@@ -78,6 +89,8 @@ protected:
 
 
 private:
+
 	bool bIsCharacterOnTop =false;
 
+	uint16 StepsCount = 0;
 };

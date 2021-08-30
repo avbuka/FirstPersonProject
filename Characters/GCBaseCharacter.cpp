@@ -199,19 +199,104 @@ const class AZipline* AGCBaseCharacter::GetAvailableZipline()
 	return nullptr;
 }
 
+void AGCBaseCharacter::GetIKClimbingArms(FVector& _OutLeftPoint, FVector& _OutRightPoint)
+{
+	uint8 ArmCount = 0;
+	float Delta = 70.0f;
+	float BodyHeightOffset = 50.0f;
+	const ALadder* Ladder = GetAvailableLadder();
+
+	FVector LadderStart = Ladder->GetActorLocation() ;
+	
+	//DrawDebugSphere(GetWorld(), Ladder->GetActorLocation(), 10.0f, 16, FColor::Turquoise, true);
+
+	FVector StepsStart = LadderStart + Ladder->GetActorUpVector() * Ladder->GetBottomStepOffset();
+////	DrawDebugSphere(GetWorld(), StepsStart, 10.0f, 16, FColor::Yellow, true);
+
+
+	FVector UpperBodyPoint = GetActorLocation() + GetActorUpVector() * BodyHeightOffset; //add a param
+	FVector TargetStepLocation;
+	FVector UpperArm, LowerArm;
+
+	FVector BodyCenterOnLadderProjection;
+
+	//@TODO make the same for legs 
+
+
+	float LastDiff = MAX_FLT;
+	int i;
+	FVector StepUp = Ladder->GetActorUpVector()  * Ladder->GetStepsInterval();
+	for (i=0;i<Ladder->GetStepsCount();i++)
+	{
+		BodyCenterOnLadderProjection = StepsStart + StepUp * i;
+		float Diff = (BodyCenterOnLadderProjection - GetActorLocation()).Size();
+
+		if (Diff < LastDiff)
+		{
+			LastDiff = Diff;
+		}
+		else if(Diff>LastDiff)
+		{
+			break;
+		}
+
+	}
+	if (i <= Ladder->GetStepsCount() - 2)
+	{
+		// New Step
+		if (PreviousI != i)
+		{
+			PreviousI = i;
+			bSkipLadderStep = !bSkipLadderStep;
+		}
+		if(bSkipLadderStep)
+		{
+			_OutRightPoint = BodyCenterOnLadderProjection;
+			_OutLeftPoint = BodyCenterOnLadderProjection + StepUp;
+		}
+		else
+		{
+			_OutLeftPoint = BodyCenterOnLadderProjection;
+			_OutRightPoint = BodyCenterOnLadderProjection + StepUp;
+		}
+
+	}
+
+
+	_OutRightPoint -= Ladder->GetActorRightVector() * Ladder->GetLadderWidth() * 0.3f;
+	_OutLeftPoint += Ladder->GetActorRightVector() * Ladder->GetLadderWidth() * 0.3f;
+	//DrawDebugSphere(GetWorld(), BodyCenterOnLadderProjection, 10.0f, 16, FColor::Blue, false, 0.1f);
+	//DrawDebugSphere(GetWorld(), RightArmIK_WS, 10.0f, 16, FColor::Green, false, 0.1f);
+	//DrawDebugSphere(GetWorld(), LeftArmIK_WS, 10.0f, 16, FColor::Red, false, 0.1f);
+	//
+}
+
 void AGCBaseCharacter::UpdateIKSettings(float DeltaSeconds)
 {
-	IKRightFootOffset = FMath::FInterpTo(IKRightFootOffset, GetIKFootOffset(RightFootSocketName), DeltaSeconds, IKInterpSpeed);
-	IKLeftFootOffset = FMath::FInterpTo(IKLeftFootOffset, GetIKFootOffset(LeftFootSocketName), DeltaSeconds, IKInterpSpeed);
+	if (GetCharacterBaseMovementComponent()->IsMovingOnGround())
+	{
+		IKRightFootOffset = FMath::FInterpTo(IKRightFootOffset, GetIKFootOffset(RightFootSocketName), DeltaSeconds, IKInterpSpeed);
+		IKLeftFootOffset = FMath::FInterpTo(IKLeftFootOffset, GetIKFootOffset(LeftFootSocketName), DeltaSeconds, IKInterpSpeed);
 
-	if (!FMath::IsNearlyEqual(IKLeftFootOffset, IKRightFootOffset))
-	{
-		IKHipOffset = FMath::FInterpTo(IKHipOffset, IKRightFootOffset + IKLeftFootOffset, DeltaSeconds, 10);
+		if (!FMath::IsNearlyEqual(IKLeftFootOffset, IKRightFootOffset))
+		{
+			IKHipOffset = FMath::FInterpTo(IKHipOffset, IKRightFootOffset + IKLeftFootOffset, DeltaSeconds, 10);
+		}
+		else
+		{
+			IKHipOffset = FMath::FInterpTo(IKHipOffset, 0, DeltaSeconds, IKInterpSpeed);
+		}
 	}
-	else
+	else if (GetCharacterBaseMovementComponent()->IsOnLadder())
 	{
-		IKHipOffset = FMath::FInterpTo(IKHipOffset, 0, DeltaSeconds, IKInterpSpeed);
+		FVector LeftArm, RightArm;
+		GetIKClimbingArms(LeftArm, RightArm);
+		LeftArmIK_WS = FMath::VInterpTo(LeftArmIK_WS, LeftArm,DeltaSeconds,IKInterpSpeed);
+		RightArmIK_WS= FMath::VInterpTo(RightArmIK_WS, RightArm, DeltaSeconds, IKInterpSpeed);
+
+		
 	}
+	
 }
 
 void AGCBaseCharacter::Jump()
