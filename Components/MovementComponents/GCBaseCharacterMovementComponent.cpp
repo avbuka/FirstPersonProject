@@ -663,6 +663,7 @@ void UGCBaseCharacterMovementComponent::StartMantle(const FMantlingMovementParam
 
 void UGCBaseCharacterMovementComponent::EndMantle()
 {
+	GCPlayerCharacter->OnEndMantle();
 	SetMovementMode(MOVE_Walking);	
 }
 

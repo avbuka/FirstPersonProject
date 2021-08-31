@@ -21,7 +21,7 @@ protected:
 	virtual void SetupInputComponent() override;
 
 private:
-	TSoftObjectPtr<AGCBaseCharacter> ChachedBaseCharacter;
+	TSoftObjectPtr<class AGCBaseCharacter> ChachedBaseCharacter;
 
 	void MoveForward(float Value);
 	void MoveRight(float Value);

@@ -385,6 +385,7 @@ void AGCBaseCharacter::Mantle(bool bForce )
 		AnimInstance->Montage_Play(MantlingSettings.MantleMontage, 1.0f, EMontagePlayReturnType::Duration, MantlingParams.StartTime);
 
 		GetCharacterBaseMovementComponent()->bWantsToMantle = false;
+		OnStartMantle(MantlingSettings, MantlingParams.StartTime);
 	}
 }
 
@@ -423,5 +424,28 @@ bool AGCBaseCharacter::CanSprint()
 		return false;
 	}
 	return true;
+}
+
+void AGCBaseCharacter::OnStartMantle(const FMantlingSettings& MantlingSettings, float MantlingAnimationStartTIme)
+{
+
+}
+
+void AGCBaseCharacter::OnEndMantle()
+{
+
+}
+
+void AGCBaseCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	GCPlayerController = StaticCast<AGCPlayerController*>(NewController);	
+	ensureMsgf(IsValid(GCPlayerController), TEXT("void AGCBaseCharacter::PossessedBy(AController* NewController) New controlles is not AGCPlayerController"));
+}
+
+AGCPlayerController* AGCBaseCharacter::GetGCPlayerController() const
+{
+	return GCPlayerController;
 }
 

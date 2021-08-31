@@ -8,6 +8,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "../Components/GameCodeTypes.h"
+#include "Controllers/GCPlayerController.h"
 
 
 AFPPlayerCharacter::AFPPlayerCharacter(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -36,6 +37,77 @@ AFPPlayerCharacter::AFPPlayerCharacter(const FObjectInitializer& ObjectInitializ
 	bUseControllerRotationYaw = true;
 
 
+}
+
+
+
+void AFPPlayerCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	if (IsFPMontagePlaying())
+	{
+		float BlendSpeed = 20.0f;
+		FRotator TargetControlRotation = GetGCPlayerController()->GetControlRotation();
+
+		TargetControlRotation.Pitch = 0.0f;
+
+		TargetControlRotation = FMath::RInterpTo(GetGCPlayerController()->GetControlRotation(), TargetControlRotation, DeltaSeconds, BlendSpeed);
+		GetGCPlayerController()->SetControlRotation(TargetControlRotation);
+	}
+}
+
+void AFPPlayerCharacter::OnStartMantle(const FMantlingSettings& MantlingSettings, float MantlingAnimationStartTIme)
+{
+	Super::OnStartMantle(MantlingSettings, MantlingAnimationStartTIme);
+
+	UAnimInstance* FPAnimInstance = FirstPersonMeshComponent->GetAnimInstance();
+
+	AGCPlayerController* PC = Cast<AGCPlayerController>(Controller);
+	
+	if (IsValid(PC))
+	{
+		PC->SetIgnoreLookInput(true);
+		PC->SetIgnoreMoveInput(true);
+	}
+
+	if (IsValid(FPAnimInstance) && MantlingSettings.FPMantleMontage)
+	{
+		FPAnimInstance->Montage_Play(MantlingSettings.FPMantleMontage, 1.0f, EMontagePlayReturnType::Duration, MantlingAnimationStartTIme);
+	}
+}
+
+void AFPPlayerCharacter::OnEndMantle()
+{
+	Super::OnEndMantle();
+
+	AGCPlayerController* PC = Cast<AGCPlayerController>(Controller);
+
+	if (IsValid(PC))
+	{
+		PC->SetIgnoreLookInput(false);
+		PC->SetIgnoreMoveInput(false);
+	}
+}
+
+FRotator AFPPlayerCharacter::GetViewRotation() const
+{
+	FRotator Result = Super::GetViewRotation();
+	if (IsFPMontagePlaying())
+	{
+		FRotator SocketRotation = FirstPersonMeshComponent->GetSocketRotation(SocketFPCamera);
+		Result.Pitch += SocketRotation.Pitch;
+		Result.Yaw = SocketRotation.Yaw;
+		Result.Roll = SocketRotation.Roll;
+	}
+
+	return Result;
+}
+
+bool AFPPlayerCharacter::IsFPMontagePlaying() const
+{
+
+	return IsValid(FirstPersonMeshComponent->GetAnimInstance()) && FirstPersonMeshComponent->GetAnimInstance()->IsAnyMontagePlaying();	
 }
 
 void AFPPlayerCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)

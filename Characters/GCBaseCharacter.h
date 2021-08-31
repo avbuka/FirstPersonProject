@@ -4,12 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Controllers/GCPlayerController.h"
 #include "GCBaseCharacter.generated.h"
 
 class UGCBaseCharacterMovementComponent;
 class UCurveVector;
 class UAnimMontage;
 class AInteractiveActor;
+class AGCPlayerController;
 
 USTRUCT(BlueprintType)
 struct FMantlingSettings
@@ -18,6 +20,9 @@ struct FMantlingSettings
 public:
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
 	UAnimMontage* MantleMontage;
+	
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
+	UAnimMontage* FPMantleMontage;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UCurveVector* MantlingCurve;
@@ -96,6 +101,14 @@ public:
 	UGCBaseCharacterMovementComponent* GetCharacterBaseMovementComponent() const
 		{ return GCBaseCharacterMovementComponent; };
 
+	AGCPlayerController* GetGCPlayerController() const;
+
+	virtual void OnStartMantle(const FMantlingSettings& MantlingSettings, float MantlingAnimationStartTIme);
+
+	virtual void OnEndMantle();
+
+	virtual void PossessedBy(AController* NewController) override;
+
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	float GetIKLeftFootOffset() { return IKLeftFootOffset; }
 
@@ -112,30 +125,16 @@ public:
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly,Category="Character | Movement ")
 	class UGCLedgeDetectorComponent* LedgeDetector;
 
-
 	const FName& GetGrabbingHandSocketName() const { return GrabbingHandSocketName; }
-protected:
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category="Character | Movement | Stamina", 
-		meta = (ClampMin = 0.0f, UIMin = 0.0f))
-	float MaxStamina=100.0f;															
-																				
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category="Character | Movement | Stamina", 
-		meta = (ClampMin = 0.0f, UIMin = 0.0f))
-	float StaminaRestoreVelocity=2.0f;
-																				
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category="Character | Movement | Stamina", 
-		meta = (ClampMin = 0.0f, UIMin = 0.0f))
-	float SprintStaminaConsumprionVelocity=5.0f;
+	
 
-	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Character | Controls")
-	float BaseTurnRate=45.0f;
-	
-	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Character | Controls")
-	float BaseLookUpRate=45.0f;
-	
+protected:
+
+	virtual bool CanSprint();
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Character | Movement")
 	void OnSprintStart();
+
 	virtual void OnSprintStart_Implementation() PURE_VIRTUAL(AGCBaseCharacter::OnSprintStart_Implementation(),);
 	
 	UFUNCTION(BlueprintNativeEvent, Category = "Character | Movement")
@@ -144,6 +143,24 @@ protected:
 	
 	UFUNCTION()
 	void OnCapsuleHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Character | Movement | Stamina",
+		meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	float MaxStamina = 100.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Character | Movement | Stamina",
+		meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	float StaminaRestoreVelocity = 2.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Character | Movement | Stamina",
+		meta = (ClampMin = 0.0f, UIMin = 0.0f))
+	float SprintStaminaConsumprionVelocity = 5.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Character | Controls")
+	float BaseTurnRate = 45.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Character | Controls")
+	float BaseLookUpRate = 45.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Character | IK Settings")
 	FName LeftFootSocketName;
@@ -175,10 +192,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Character | Sliding")
 	UAnimMontage* SlidingMontage;
 
-	virtual bool CanSprint() ;
-
-
 	UGCBaseCharacterMovementComponent* GCBaseCharacterMovementComponent;
+
+	AGCPlayerController* GCPlayerController;
 
 	TArray<AInteractiveActor*> InteractiveActors;
 private:
@@ -200,8 +216,5 @@ private:
 
 	float CurrentStamina = 0.0f;
 	float UnchrouchedHalfHeight = 0.0f;
-
-
-public:
 
 };
