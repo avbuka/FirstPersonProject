@@ -15,6 +15,10 @@ class XYZPROJECT_API AFPPlayerCharacter : public AGCPlayerCharacter
 	GENERATED_BODY()
 	
 public:
+	
+	void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;	
+	void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+
 	AFPPlayerCharacter(const FObjectInitializer& ObjectInitializer);
 
 protected:
