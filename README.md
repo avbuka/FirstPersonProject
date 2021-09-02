@@ -21,7 +21,7 @@ Movement:
 
 
 Character:
-1)~~~First person camera~~~
+1)~~First person camera~~
 
 Weapons:
 1) Pistol
