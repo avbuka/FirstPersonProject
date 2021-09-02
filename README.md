@@ -9,9 +9,14 @@ The character can mantle over high and low obstacles. Two distinct animations ar
 
 ![High Mantling GIF](Pictures/HighMantle.gif) 
 
-#### Mantling
+#### Wallrunning
 Simple implementation of wallrunning inspired by Titanfall 1-2. 
 ![WallRunning](Pictures/WallRunning.gif)
+
+#### Sliding
+Custom physics function for colision and floor detection 
+![Sliding](Pictures/Sliding.gif)
+
 
 ## TODO
 Movement:
