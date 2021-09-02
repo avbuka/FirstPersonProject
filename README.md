@@ -17,11 +17,11 @@ Simple implementation of wallrunning inspired by Titanfall 1-2.
 Movement:
 1. ~~Finish Zipline~~
 2. ~~Add wallrunning~~
-3) Add sliding
+3) ~~Add sliding~~
 
 
 Character:
-1) First person camera
+1)~~~First person camera~~~
 
 Weapons:
 1) Pistol
