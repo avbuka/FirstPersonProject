@@ -758,8 +758,33 @@ void UGCBaseCharacterMovementComponent::DetachFromLadder(EGCDetachMethod DMethod
 	}
 }
 
-void UGCBaseCharacterMovementComponent::DetachFromZipline()
+void UGCBaseCharacterMovementComponent::DetachFromZipline(EGCDetachMethod DMethod/*= Fall*/)
 {
+	switch (DMethod)
+	{
+	case EGCDetachMethod::Fall:
+	{
+		SetMovementMode(MOVE_Falling);
+		break;
+	}
+	case EGCDetachMethod::Jump:
+	{
+		FVector JumpDirection = FVector::ZeroVector;
+
+
+		JumpDirection = GCPlayerCharacter->GetActorForwardVector() - GCPlayerCharacter->GetActorRightVector();
+
+		JumpDirection.Z = 0.5f;
+		FVector JumpVelocity = JumpDirection * WallRunningMaxSpeed;
+		ForceTargetRotation = JumpDirection.ToOrientationRotator();
+		bForceRotation = true;
+		SetMovementMode(MOVE_Falling);
+		Launch(JumpVelocity);
+		break;
+	}
+	default:
+		break;
+	}
 	bIsZiplining = false;
 	SetMovementMode(MOVE_Falling);
 }
@@ -837,7 +862,6 @@ void UGCBaseCharacterMovementComponent::PhysCustom(float DeltaTime, int32 Iterat
 	case (uint8)ECustomMovementMode::CMOVE_ClimbingLadder:
 	{
 		PhysClimbing(DeltaTime, Iterations);
-
 		break;
 	}
 	case  (uint8)ECustomMovementMode::CMOVE_Ziplining:
@@ -855,7 +879,6 @@ void UGCBaseCharacterMovementComponent::PhysCustom(float DeltaTime, int32 Iterat
 		PhysSliding(DeltaTime, Iterations);
 		break;
 	}
-
 	default:
 		break;
 	}
@@ -865,6 +888,11 @@ void UGCBaseCharacterMovementComponent::PhysCustom(float DeltaTime, int32 Iterat
 
 void UGCBaseCharacterMovementComponent::PhysMantling(float DeltaTime, int32 Iterations)
 {
+	if (DeltaTime < MIN_TICK_TIME)
+	{
+		return;
+	}
+
 	float ElapsedTime = GetWorld()->GetTimerManager().GetTimerElapsed(MantlingTimer) + CurrentMantlingParameters.StartTime;
 
 	FVector MantlingCurveValue = CurrentMantlingParameters.MantlingCurve->GetVectorValue(ElapsedTime);
@@ -872,15 +900,13 @@ void UGCBaseCharacterMovementComponent::PhysMantling(float DeltaTime, int32 Iter
 	float XYCorrectionAlpha = MantlingCurveValue.Y;
 	float ZCorrectionAlpha = MantlingCurveValue.Z;
 
-
-	// Convert local to global transform, the credit goes to ALS 
+	// Convert local to global transform to ensure the most recent data is used ( important for moving objects)
 	FTransform TargetTransformWS = UALSMathLibrary::MantleComponentLocalToWorld(CurrentMantlingParameters.LedgeComponent.Get(), CurrentMantlingParameters.TargetTranformLS);
 
 	FVector CorrectedInitialLocation = FMath::Lerp(CurrentMantlingParameters.InitialLocation, CurrentMantlingParameters.InitialAnimationLocation, XYCorrectionAlpha);
-	CorrectedInitialLocation.X += 1;
 	CorrectedInitialLocation.Z = FMath::Lerp(CurrentMantlingParameters.InitialLocation.Z, CurrentMantlingParameters.InitialAnimationLocation.Z, ZCorrectionAlpha);
 
-	FVector NewLocation = FMath::Lerp(CorrectedInitialLocation, TargetTransformWS.GetLocation(), PositionAlpha);
+	FVector  NewLocation = FMath::Lerp(CorrectedInitialLocation, TargetTransformWS.GetLocation(), PositionAlpha);
 	FRotator NewRotation = FMath::Lerp(CurrentMantlingParameters.InitialRotation, TargetTransformWS.GetRotation().Rotator(), PositionAlpha);
 
 	FVector Delta = NewLocation - GetActorLocation();
@@ -891,12 +917,16 @@ void UGCBaseCharacterMovementComponent::PhysMantling(float DeltaTime, int32 Iter
 
 void UGCBaseCharacterMovementComponent::PhysClimbing(float DeltaTime, int32 Iterations)
 {
+	if (DeltaTime < MIN_TICK_TIME)
+	{
+		return;
+	}
+
 	CalcVelocity(DeltaTime, 1.0f, false, ClimbingDeceleration);
 	FVector Delta = Velocity * DeltaTime;
 
 	if (HasAnimRootMotion())
 	{
-
 		FHitResult Hit;
 		SafeMoveUpdatedComponent(Delta, GetOwner()->GetActorRotation(), false, Hit);
 		return;
@@ -912,7 +942,6 @@ void UGCBaseCharacterMovementComponent::PhysClimbing(float DeltaTime, int32 Iter
 	else if(NewPosProjection> (CurrentLadder->GetLadderHeight()- MaxClimbTopOffset))
 	{
 		DetachFromLadder(EGCDetachMethod::ReachingTheTop);
-
 	}
 
 	FHitResult Hit;
@@ -921,17 +950,22 @@ void UGCBaseCharacterMovementComponent::PhysClimbing(float DeltaTime, int32 Iter
 
 void UGCBaseCharacterMovementComponent::PhysZiplining(float DeltaTime, int32 Iterations)
 {
-	
+	if (DeltaTime < MIN_TICK_TIME)
+	{
+		return;
+	}
+
 	FVector HandLocation = GCPlayerCharacter->GetMesh()->GetSocketLocation(GCPlayerCharacter->GetGrabbingHandSocketName());
-	FVector ZiplineVector = GetCurrentZipline()->GetZiplineDownVector();	
-	FVector Delta = DeltaTime * (ZiplineVector * ZipliningSpeed);
-	FVector TargetDelta = CurrentZipline->GetLowerPoleLocation()-GetActorLocation();
-	FRotator TargetRotation = DeltaTime * (ZiplineVector.ToOrientationRotator() - GCPlayerCharacter->GetActorRotation()) + GCPlayerCharacter->GetActorRotation();
+	FVector Delta = DeltaTime * (GetCurrentZipline()->GetZiplineDownVector() * ZipliningSpeed);
+	FVector ActorToLowerPoleVector = CurrentZipline->GetLowerPoleLocation() - GetActorLocation();
+	
+	FRotator TargetRotation = DeltaTime * (GetCurrentZipline()->GetZiplineDownVector().ToOrientationRotator() 
+										   - GCPlayerCharacter->GetActorRotation()) + GCPlayerCharacter->GetActorRotation();
 
 	TargetRotation.Pitch = 0;
 
 	
-	if (TargetDelta.Size()< CurrentZipline->GetZiplineJumpOffThreshold())
+	if (ActorToLowerPoleVector.Size() < CurrentZipline->GetZiplineJumpOffThreshold())
 	{
 		DetachFromZipline();
 	}
@@ -942,17 +976,17 @@ void UGCBaseCharacterMovementComponent::PhysZiplining(float DeltaTime, int32 Ite
 	FVector HandOnZiplineProjection = CurrentZipline->GetCableHighestPoint() + FVector::DotProduct(CharacterVector, CableVector) / FVector::DotProduct(CableVector, CableVector) * CableVector;
 
 	float CapsuleHalfHeight = GCPlayerCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
-	// Slowly moving the character target arm to the cable
+
+	// Slowly moving the character target arm socket location to the cable
 	FVector DeltaHand = (HandOnZiplineProjection - HandLocation) / CharacterToZiplineMoveSpeed;
 
-	if (HandLocation.Z < GetActorLocation().Z + CapsuleHalfHeight)
+	if (HandLocation.Z < GetActorLocation().Z + CapsuleHalfHeight) 
 	{
 		DeltaHand = FVector::ZeroVector;
 	}
 
-
 	FHitResult Hit;
-	SafeMoveUpdatedComponent(Delta+DeltaHand, TargetRotation, true, Hit);
+	SafeMoveUpdatedComponent(Delta + DeltaHand, TargetRotation, true, Hit);
 
 	if (Hit.bBlockingHit)
 	{
@@ -962,14 +996,18 @@ void UGCBaseCharacterMovementComponent::PhysZiplining(float DeltaTime, int32 Ite
 
 void UGCBaseCharacterMovementComponent::PhysWallRunning(float DeltaTime, int32 Iterations)
 {
+	if (DeltaTime < MIN_TICK_TIME)
+	{
+		return;
+	}
+
 	FHitResult Hit(1.0f);
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(GetOwner());
 	float LineTraceLength = 100.0f;
 	
-	FVector HitLocation;
 	FVector LineTraceEnd = CurrentWallRunningSide == EWallRunningSide::Left ? -GetOwner()->GetActorRightVector(): GetOwner()->GetActorRightVector();
-	LineTraceEnd = LineTraceEnd*LineTraceLength + GetActorLocation();
+	LineTraceEnd = LineTraceEnd * LineTraceLength + GetActorLocation();
 
 	if (!GetWorld()->LineTraceSingleByChannel(Hit, GetActorLocation(), LineTraceEnd , ECC_WallRunnable, Params)
 		|| !AreWallRunningKeysPressed(CurrentWallRunningSide))
@@ -978,7 +1016,6 @@ void UGCBaseCharacterMovementComponent::PhysWallRunning(float DeltaTime, int32 I
 		return;
 	}
 
-	HitLocation = Hit.Location;
 
 	FVector WallDirection = GetWallDirection(Hit.ImpactNormal, CurrentWallRunningSide);
 	float ElapsedTime = GetWorld()->GetTimerManager().GetTimerElapsed(WallRunningTimer);
@@ -993,7 +1030,7 @@ void UGCBaseCharacterMovementComponent::PhysWallRunning(float DeltaTime, int32 I
 	// Try to slide down using the wallrunning curve
 	if (Hit.bBlockingHit)
 	{		
-		float PreviousDistanceToWall = (HitLocation - GetActorLocation()).Size();
+		float PreviousDistanceToWall = (Hit.Location - GetActorLocation()).Size();
 		
 		LineTraceEnd = CurrentWallRunningSide == EWallRunningSide::Left ? -GetOwner()->GetActorRightVector() : GetOwner()->GetActorRightVector();
 		LineTraceEnd = LineTraceEnd * LineTraceLength + GetActorLocation()+WallDirection;
@@ -1025,6 +1062,29 @@ void UGCBaseCharacterMovementComponent::PhysWallRunning(float DeltaTime, int32 I
 	}
 }
 
+void UGCBaseCharacterMovementComponent::PhysSliding(float DeltaTime, int32 Iterations)
+{
+	FHitResult Hit;
+	FStepDownResult StepDownResult;
+	FVector Delta = GCPlayerCharacter->GetActorForwardVector() * GetMaxSpeed() * DeltaTime;
+	const bool bZeroDelta = Delta.IsNearlyZero();
+
+	Delta.Z = 0.0f;
+
+	FindFloor(GCPlayerCharacter->GetActorLocation(), CurrentFloor, bZeroDelta, nullptr);
+
+	float FloorAngle = FVector::DotProduct(CurrentFloor.HitResult.ImpactNormal, GCPlayerCharacter->GetActorForwardVector());
+
+	Delta = ComputeGroundMovementDelta(Delta, CurrentFloor.HitResult, CurrentFloor.bLineTrace);
+	SafeMoveUpdatedComponent(Delta, GCPlayerCharacter->GetActorRotation(), true, Hit);
+
+	if (Hit.bBlockingHit || !CurrentFloor.bWalkableFloor || FloorAngle * 100.0f < -MaxSlidingUpAngle)
+	{
+		GCPlayerCharacter->InterruptedSlide();
+		bWantsToEndSlide = true;
+		return;
+	}
+}
 bool UGCBaseCharacterMovementComponent::AreWallRunningKeysPressed(const EWallRunningSide& CurrentSide) const
 {
 	float Delta = 0.1f;
@@ -1064,29 +1124,6 @@ FVector UGCBaseCharacterMovementComponent::GetWallDirection(const FVector& WallN
 	}
 }
 
-void UGCBaseCharacterMovementComponent::PhysSliding(float DeltaTime, int32 Iterations)
-{
-	FHitResult Hit;
-	FStepDownResult StepDownResult;
-	FVector Delta = GCPlayerCharacter->GetActorForwardVector() * GetMaxSpeed() * DeltaTime;
-	const bool bZeroDelta = Delta.IsNearlyZero();
-
-	Delta.Z = 0.0f;
-
-	FindFloor(GCPlayerCharacter->GetActorLocation(), CurrentFloor, bZeroDelta, nullptr);
-	
-	float FloorAngle = FVector::DotProduct(CurrentFloor.HitResult.ImpactNormal, GCPlayerCharacter->GetActorForwardVector());
-	
-	Delta = ComputeGroundMovementDelta(Delta, CurrentFloor.HitResult, CurrentFloor.bLineTrace);
-	SafeMoveUpdatedComponent(Delta, GCPlayerCharacter->GetActorRotation(), true, Hit);
-
-	if (Hit.bBlockingHit || !CurrentFloor.bWalkableFloor || FloorAngle * 100.0f < -MaxSlidingUpAngle ) 
-	{
-		GCPlayerCharacter->InterruptedSlide();
-		bWantsToEndSlide = true;
-		return;
-	}
-}
 
 bool UGCBaseCharacterMovementComponent::CanMantleInCurrentState()
 {

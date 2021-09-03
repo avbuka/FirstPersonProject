@@ -123,7 +123,7 @@ public:
 	float GetLadderSpeedRatio() const;
 
 	void DetachFromLadder(EGCDetachMethod DMethod = EGCDetachMethod::Fall);
-	void DetachFromZipline();
+	void DetachFromZipline(EGCDetachMethod DMethod = EGCDetachMethod::Fall);
 
 	const ALadder* GetCurrentLadder() { return CurrentLadder; }
 	const AZipline* GetCurrentZipline() { return CurrentZipline; }
