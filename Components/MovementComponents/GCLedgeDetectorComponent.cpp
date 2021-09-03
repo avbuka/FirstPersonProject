@@ -57,7 +57,7 @@ bool UGCLedgeDetectorComponent::DetectLedge(OUT FLedgeDescription& LedgeDescript
 	FVector CharacterBottom = CapsuleComponent->GetComponentLocation() -
 		( CapsuleComponent->GetScaledCapsuleHalfHeight()- BottomOffset)* FVector::UpVector;
 
-	//1. forward check
+	//1. Forward check
 	float ForwardCheckCapsuleRadius = CapsuleComponent->GetScaledCapsuleRadius();
 	float ForwardCheckCapsuleHalfHeight = (MaxLedgeHeight - MinLedgeHeight) * 0.5;
 
@@ -72,7 +72,7 @@ bool UGCLedgeDetectorComponent::DetectLedge(OUT FLedgeDescription& LedgeDescript
 
 	}
 
-	//2. downward check 
+	//2. Downward check 
 
 	float EdgeOffset = 5.0f;
 	float DownwardCheckSphereRadius = 5;
@@ -94,7 +94,7 @@ bool UGCLedgeDetectorComponent::DetectLedge(OUT FLedgeDescription& LedgeDescript
 		return false;
 	}
 
-	//3. overlap check
+	//3. Overlap check
 
 	float OverlapCapsuleRadius = CapsuleComponent->GetUnscaledCapsuleRadius();
 	FVector OverlapLocation = DownwardCheckHitResult.ImpactPoint + (OverlapCapsuleHalfHeight + EdgeOffset) * FVector::UpVector;

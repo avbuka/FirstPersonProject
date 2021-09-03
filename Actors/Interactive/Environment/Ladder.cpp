@@ -53,6 +53,12 @@ void ALadder::SetObjectType()
 
 void ALadder::OnConstruction(const FTransform& Transform)
 {	
+	checkf(IsValid(LeftRailMeshComponent), TEXT("void ALadder::OnConstruction LeftRail mesh is not valid"));
+	checkf(IsValid(RightRailMeshComponent), TEXT("void ALadder::OnConstruction RightRail mesh is not valid"));
+	checkf(IsValid(StepsMeshComponent), TEXT("void ALadder::OnConstruction Steps mesh is not valid"));
+	checkf(IsValid(InteractionVolume) && IsValid(TopInteractionVolume), 
+			TEXT("void ALadder::OnConstruction Interaction volume is not valid"));
+
 	LeftRailMeshComponent->SetRelativeLocation(FVector(0.0f, -LadderWidth * 0.5, GetLadderHeight()*0.5));
 	RightRailMeshComponent->SetRelativeLocation(FVector(0.0f, LadderWidth * 0.5, GetLadderHeight() * 0.5));
 
@@ -117,7 +123,6 @@ void ALadder::OnInteractionVolumeOverlapEnd(UPrimitiveComponent* OverlappedCompo
 	if (OverlappedComponent == TopInteractionVolume)
 	{
 		bIsCharacterOnTop = false;
-
 	}
 }
 

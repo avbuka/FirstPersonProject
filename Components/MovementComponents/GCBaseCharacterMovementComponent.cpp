@@ -1085,6 +1085,7 @@ void UGCBaseCharacterMovementComponent::PhysSliding(float DeltaTime, int32 Itera
 		return;
 	}
 }
+
 bool UGCBaseCharacterMovementComponent::AreWallRunningKeysPressed(const EWallRunningSide& CurrentSide) const
 {
 	float Delta = 0.1f;

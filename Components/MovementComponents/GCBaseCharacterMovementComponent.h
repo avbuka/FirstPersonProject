@@ -275,7 +275,8 @@ protected:
 
 
 private:
-	bool bIsSprinting=false;
+
+	bool bIsSprinting	 = false;
 	bool bIsOutOfStamina = false;
 	bool bIsCrawling	 = false;
 	bool bIsZiplining	 = false;
