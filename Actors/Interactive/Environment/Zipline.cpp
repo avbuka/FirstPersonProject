@@ -94,11 +94,8 @@ void AZipline::OnConstruction(const FTransform& Transform)
 	checkf(IsValid(InteractionVolume),	  TEXT("void AZipline::OnConstruction Interaction volume is not valid"));
 
 	FTransform CableTransform;
-	FBox FirstPoleBox = FirstPoleSMComponent->GetStaticMesh()->GetBoundingBox();
-	FBox SecondPoleBox = SecondPoleSMComponent->GetStaticMesh()->GetBoundingBox();
-
+	
 	// Placing the cable in the middle 
-
 	FVector DeltaVector = GetPoleTopLocation(SecondPoleSMComponent) - GetPoleTopLocation(FirstPoleSMComponent);
 	
 	float TargetCableLength = DeltaVector.Size();
@@ -106,7 +103,7 @@ void AZipline::OnConstruction(const FTransform& Transform)
 
 	CableLength = TargetCableLength;
 
-	CableTransform.SetLocation((GetPoleTopLocation(SecondPoleSMComponent)+GetPoleTopLocation(FirstPoleSMComponent)) * 0.5f);
+	CableTransform.SetLocation((GetPoleTopLocation(SecondPoleSMComponent) + GetPoleTopLocation(FirstPoleSMComponent)) * 0.5f);
 	CableTransform.SetScale3D(FVector(TargetCableLength / InitialCableLength, 1, 1));
 	CableTransform.SetRotation(DeltaVector.ToOrientationRotator().Quaternion());
 

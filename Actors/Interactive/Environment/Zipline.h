@@ -40,6 +40,7 @@ public:
 
 
 protected:
+
 	virtual void BeginPlay() override;
 	virtual void SetObjectType() override;
 	virtual void OnConstruction(const FTransform& Transform) override;
@@ -50,13 +51,12 @@ protected:
 	UFUNCTION(BlueprintCallable,CallInEditor,Category="Zipline Settings")
 	void ConstructZipline();
 
+	// Distance to the lower pole from which an actor detaches
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Zipline Settings")
 	float ZiplineJumpOffThreshold = 100.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Zipline Settings")
 	float TopCableOffset = 5.0f;
-
-
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	UStaticMeshComponent* FirstPoleSMComponent;
